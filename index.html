@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="description" content="N.D.S CompileD Gallery - Explore and upload creative images and videos." />
+    <meta property="og:image" content="assets/default-preview.jpg" />
+    <title>N.D.S CompileD Gallery</title>
+    <link rel="icon" href="assets/favicon.ico" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <i class="fas fa-thumbtack" style="color: var(--accent); font-size: 1.5rem;"></i>
+            <h1>N.D.S CompileD Gallery</h1>
+        </div>
+        
+        <div class="search-bar">
+            <input type="text" placeholder="Search for ideas..." aria-label="Search gallery">
+            <button aria-label="Clear search"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <nav class="user-actions">
+            <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
+            <button title="Notifications" aria-label="Notifications">
+                <i class="fas fa-bell"></i>
+                <span class="badge">3</span>
+            </button>
+            <button title="User Profile" aria-label="User profile">
+                <i class="fas fa-user"></i>
+            </button>
+        </nav>
+    </header>
+
+    <section class="category-filters">
+        <button class="category-filter active" data-category="all">All</button>
+        <button class="category-filter" data-category="birds">Birds</button>
+        <button class="category-filter" data-category="Pets">Pets</button>
+        <button class="category-filter" data-category="landscape">Landscape</button>
+        <button class="category-filter" data-category="night">Night</button>
+        <button class="category-filter" data-category="video">Video</button>
+    </section>
+
+    <main>
+        <div class="gallery" id="galleryContainer">
+            <!-- Gallery items will be dynamically loaded here -->
+        </div>
+        
+        <div class="loading-more" id="loading">
+            <div class="loading-spinner"></div>
+            <p>Loading more pins...</p>
+        </div>
+    </main>
+
+    <button class="upload-btn" id="uploadBtn" aria-label="Upload media">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <div class="modal" id="uploadModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Upload Media</h2>
+                <button class="close-btn" id="closeModal" aria-label="Close modal">&times;</button>
+            </div>
+            
+            <form id="uploadForm">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <p class="upload-text">Drag & drop your image or video here, or click to browse</p>
+                    <img id="uploadPreview" class="upload-preview" alt="Preview of uploaded image">
+                    <video id="videoPreview" class="video-preview" controls></video>
+                    <div class="upload-progress" id="uploadProgress">
+                        <div class="upload-progress-bar" id="progressBar"></div>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*,video/*" style="display: none;">
+                </div>
+                
+                <div class="form-group">
+                    <label for="mediaTitle" class="form-label">Title *</label>
+                    <input type="text" id="mediaTitle" class="form-input" placeholder="Enter media title" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="mediaDescription" class="form-label">Description</label>
+                    <textarea id="mediaDescription" class="form-textarea" rows="3" placeholder="Add a description"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="mediaCategory" class="form-label">Category *</label>
+                    <select id="mediaCategory" class="form-select" required>
+                        <option value="">Select a category</option>
+                        <option value="birds">Birds</option>
+                        <option value="pets">Pets</option>
+                        <option value="landscape">Landscape</option>
+                        <option value="night">Night</option>
+                        <option value="video">Video</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="mediaTags" class="form-label">Tags (comma separated)</label>
+                    <input type="text" id="mediaTags" class="form-input" placeholder="e.g., sunset, beach, summer">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn" id="uploadAnother">Upload Another</button>
+                    <button type="submit" class="submit-btn">Upload Media</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notificationMessage">Media uploaded successfully!</span>
+    </div>
+
+    <footer>
+        <div class="social-icons">
+            <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+            <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+            <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            <a href="#" aria-label="Pinterest"><i class="fab fa-pinterest-p"></i></a>
+        </div>
+        
+        <nav class="footer-links">
+            <a href="#">About</a>
+            <a href="#">Blog</a>
+            <a href="#">Business</a>
+            <a href="#">Terms</a>
+            <a href="#">Privacy</a>
+        </nav>
+        
+        <p>&copy; <span id="currentYear"></span> N.D.S Gallery. All rights reserved.</p>
+    </footer>
+
+    <script src="scripts/script.js"></script>
+</body>
+</html>
