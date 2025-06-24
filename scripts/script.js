@@ -1,8 +1,10 @@
+// NOTE: For local development, run a local server (e.g., `netlify dev`, `npm run serve`, or similar). Do NOT open index.html directly via file://
+
 // Gallery data management
 class GalleryManager {
     constructor() {
         this.galleryItems = [];
-        this.loadFromLocalStorage();
+        this.loadFromAPI();
         this.initCurrentYear();
     }
 
@@ -10,53 +12,14 @@ class GalleryManager {
         document.getElementById('currentYear').textContent = new Date().getFullYear();
     }
 
-    loadFromLocalStorage() {
-        const savedItems = localStorage.getItem('galleryItems');
-        if (savedItems) {
-            this.galleryItems = JSON.parse(savedItems);
+    async loadFromAPI() {
+        try {
+            const response = await fetch('/.netlify/functions/get-gallery');
+            const items = await response.json();
+            this.galleryItems = items;
             this.renderGallery();
-        } else {
-            // Load initial demo data
-            this.galleryItems = [
-                {
-                    id: this.generateId(),
-                    type: 'video',
-                    src: 'created/Bootgram vid(6).mp4',
-                    title: 'Beautiful pets',
-                    description: 'Time-lapse of a girl\'s pet',
-                    category: 'video',
-                    tags: ['pet', 'cute', 'animal']
-                },
-                {
-                    id: this.generateId(),
-                    type: 'video',
-                    src: 'created/Bird (1).mp4',
-                    title: 'Beautiful Sunset',
-                    description: 'Time-lapse of sunset over mountains with birds',
-                    category: 'video',
-                    tags: ['sunset', 'birds', 'nature']
-                },
-                {
-                    id: this.generateId(),
-                    type: 'video',
-                    src: 'created/Bootgram vid(1).mp4',
-                    title: 'Beautiful pet',
-                    description: 'Time-lapse of a girl\'s pet',
-                    category: 'video',
-                    tags: ['pet', 'animal']
-                },
-                {
-                    id: this.generateId(),
-                    type: 'image',
-                    src: 'created/-Pets121 (25).jpg',
-                    title: 'Rolling Green Hills',
-                    description: 'Endless fields under blue skies',
-                    category: 'landscape',
-                    tags: ['nature', 'landscape', 'hills']
-                }
-            ];
-            this.saveToLocalStorage();
-            this.renderGallery();
+        } catch (error) {
+            console.error('Failed to load gallery items:', error);
         }
     }
 
@@ -136,7 +99,8 @@ class GalleryManager {
 
 // Main application
 class GalleryApp {
-    constructor() {
+    constructor(supa) {
+        this.supa = supa;
         this.galleryManager = new GalleryManager();
         this.initTheme();
         this.initEventListeners();
@@ -321,61 +285,74 @@ class GalleryApp {
 
     async handleUpload(e) {
         e.preventDefault();
-        
+
         const fileInput = document.getElementById('fileInput');
         const file = fileInput.files[0];
         if (!file) {
             this.showNotification('Please select a file to upload', 'error');
             return;
         }
-        
+
+        // Check authentication
+        const userResult = await this.supa.auth.getUser();
+        const user = userResult.data?.user;
+        if (!user) {
+            this.showNotification('You must be signed in to upload.', 'error');
+            return;
+        }
+
         // Show progress bar
         const uploadProgress = document.getElementById('uploadProgress');
         const progressBar = document.getElementById('progressBar');
         uploadProgress.style.display = 'block';
-        
-        // Simulate upload progress
         let progress = 0;
         const interval = setInterval(() => {
             progress += Math.random() * 10;
             if (progress > 90) progress = 90;
             progressBar.style.width = `${progress}%`;
         }, 200);
-        
+
         try {
-            // In a real app, you would upload to a server here
-            // For demo, we'll simulate the upload
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            clearInterval(interval);
-            progressBar.style.width = '100%';
-            
-            // Create a URL for the uploaded file (in a real app, this would be the server response)
-            const fileUrl = file.type.startsWith('image/') ? 
-                URL.createObjectURL(file) : 
-                file.type.startsWith('video/') ? 
-                URL.createObjectURL(file) : 
-                '';
-            
-            // Create new gallery item
+            // Upload file to Supabase Storage
+            const fileExt = file.name.split('.').pop();
+            const filePath = `${Date.now()}_${Math.random().toString(36).substr(2)}.${fileExt}`;
+            const { data: uploadData, error: uploadError } = await this.supa.storage.from('media').upload(filePath, file);
+            if (uploadError) {
+                clearInterval(interval);
+                this.showNotification('File upload failed: ' + uploadError.message, 'error');
+                return;
+            }
+            // Get public URL
+            const { data: urlData } = this.supa.storage.from('media').getPublicUrl(filePath);
+            const publicURL = urlData.publicUrl;
+
+            // Prepare metadata
             const newItem = {
-                id: this.galleryManager.generateId(),
                 type: file.type.startsWith('image/') ? 'image' : 'video',
-                src: fileUrl,
+                src: publicURL,
                 title: document.getElementById('mediaTitle').value,
                 description: document.getElementById('mediaDescription').value,
                 category: document.getElementById('mediaCategory').value,
-                tags: document.getElementById('mediaTags').value.split(',').map(tag => tag.trim())
+                tags: document.getElementById('mediaTags').value.split(',').map(tag => tag.trim()),
+                user_id: user.id
             };
-            
-            // Add to gallery
-            this.galleryManager.addItem(newItem);
-            
-            // Show success notification
+
+            // Save metadata to DB via Netlify Function
+            const response = await fetch('/.netlify/functions/upload-gallery', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newItem)
+            });
+            clearInterval(interval);
+            progressBar.style.width = '100%';
+            if (!response.ok) {
+                this.showNotification('Upload failed: ' + (await response.text()), 'error');
+                return;
+            }
             this.showNotification('Media uploaded successfully!', 'success');
-            
-            // Reset form but keep modal open
             this.resetUploadForm();
-            
+            // Optionally reload gallery
+            this.galleryManager.loadFromAPI();
         } catch (error) {
             clearInterval(interval);
             this.showNotification('Upload failed. Please try again.', 'error');
@@ -408,7 +385,77 @@ class GalleryApp {
     }
 }
 
-// Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new GalleryApp();
+  // Initialize Supabase client
+  const supa = supabase.createClient(
+    'https://cgvwfhvhuwrzekmiimrr.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNndndmaHZodXdyemVrbWlpbXJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3ODMyNzcsImV4cCI6MjA2NjM1OTI3N30.GfFb9GvLO2gtJszzuRQrn0wVEeJ2VXtvSKVOHrpuFv8'
+  );
+
+  // Auth modal logic
+  const authModal = document.getElementById('authModal');
+  const closeAuthModal = document.getElementById('closeAuthModal');
+  const toggleAuthModeBtn = document.getElementById('toggleAuthMode');
+  const authForm = document.getElementById('authForm');
+  const authModalTitle = document.getElementById('authModalTitle');
+  const authSubmitBtn = document.getElementById('authSubmitBtn');
+
+  let isSignInMode = true;
+
+  function openAuthModal() {
+    authModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeAuth() {
+    authModal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+  function toggleAuthMode() {
+    isSignInMode = !isSignInMode;
+    authModalTitle.textContent = isSignInMode ? 'Sign In' : 'Sign Up';
+    authSubmitBtn.textContent = isSignInMode ? 'Sign In' : 'Sign Up';
+    toggleAuthModeBtn.textContent = isSignInMode ? 'Switch to Sign Up' : 'Switch to Sign In';
+  }
+
+  closeAuthModal.addEventListener('click', closeAuth);
+  toggleAuthModeBtn.addEventListener('click', toggleAuthMode);
+
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('authEmail').value;
+    const password = document.getElementById('authPassword').value;
+    let result;
+    if (isSignInMode) {
+      result = await supa.auth.signInWithPassword({ email, password });
+    } else {
+      result = await supa.auth.signUp({ email, password });
+    }
+    if (result.error) {
+      alert(result.error.message);
+    } else {
+      alert(isSignInMode ? 'Signed in!' : 'Signed up! Please check your email to confirm.');
+      closeAuth();
+      checkAuthSession();
+    }
+  });
+
+  // Show/hide UI based on auth state
+  function checkAuthSession() {
+    const user = supa.auth.getUser ? supa.auth.getUser() : null;
+    // Example: Show upload button only if logged in
+    const uploadBtn = document.getElementById('uploadBtn');
+    if (user) {
+      uploadBtn.style.display = 'block';
+    } else {
+      uploadBtn.style.display = 'none';
+    }
+  }
+
+  // Insert Sign In/Up button after DOM is ready
+  document.querySelector('.user-actions').insertAdjacentHTML('beforeend', '<button id="openAuthModal" title="Sign In/Up" aria-label="Sign In/Up"><i class="fas fa-sign-in-alt"></i></button>');
+  document.getElementById('openAuthModal').addEventListener('click', openAuthModal);
+  supa.auth.onAuthStateChange(checkAuthSession);
+
+  // Initialize the rest of the app
+  new GalleryApp(supa);
 });

@@ -138,6 +138,31 @@
         <p>&copy; <span id="currentYear"></span> N.D.S Gallery. All rights reserved.</p>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <script src="scripts/script.js"></script>
+
+    <!-- Auth Modal -->
+    <div class="modal" id="authModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="authModalTitle">Sign In</h2>
+                <button class="close-btn" id="closeAuthModal" aria-label="Close modal">&times;</button>
+            </div>
+            <form id="authForm">
+                <div class="form-group">
+                    <label for="authEmail" class="form-label">Email</label>
+                    <input type="email" id="authEmail" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="authPassword" class="form-label">Password</label>
+                    <input type="password" id="authPassword" class="form-input" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn" id="authSubmitBtn">Sign In</button>
+                    <button type="button" class="secondary-btn" id="toggleAuthMode">Switch to Sign Up</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
