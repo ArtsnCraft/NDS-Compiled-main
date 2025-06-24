@@ -1,0 +1,23 @@
+{
+  "name": "nds-compiled-main",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtsnCraft/NDS-Compiled-main.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ArtsnCraft/NDS-Compiled-main/issues"
+  },
+  "homepage": "https://github.com/ArtsnCraft/NDS-Compiled-main#readme",
+  "description": "",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.1"
+  }
+}
