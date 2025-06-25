@@ -37,7 +37,7 @@
     <section class="category-filters">
         <button class="category-filter active" data-category="all">All</button>
         <button class="category-filter" data-category="birds">Birds</button>
-        <button class="category-filter" data-category="Pets">Pets</button>
+        <button class="category-filter" data-category="pets">Pets</button>
         <button class="category-filter" data-category="landscape">Landscape</button>
         <button class="category-filter" data-category="night">Night</button>
         <button class="category-filter" data-category="video">Video</button>
@@ -138,7 +138,7 @@
         <p>&copy; <span id="currentYear"></span> N.D.S Gallery. All rights reserved.</p>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
     <script src="scripts/script.js"></script>
 
     <!-- Auth Modal -->
@@ -163,6 +163,52 @@
                 </div>
             </form>
         </div>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div class="modal" id="profileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">My Profile</h2>
+                <button class="close-btn" id="closeProfileModal" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="profile-info">
+                <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
+                <button class="submit-btn" id="signOutBtn">Sign Out</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comments Modal -->
+    <div class="modal" id="commentsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Comments</h2>
+                <button class="close-btn" id="closeCommentsModal" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="comments-container">
+                <div class="comments-list" id="commentsList">
+                    <!-- Comments will be loaded here -->
+                </div>
+                <form id="commentForm" class="comment-form">
+                    <textarea id="commentInput" placeholder="Add a comment..." required></textarea>
+                    <button type="submit" class="submit-btn">Post Comment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Modal -->
+    <div class="modal" id="notificationModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Notifications</h2>
+          <button class="close-btn" id="closeNotificationModal" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="notifications-list" id="notificationsList">
+          <p>No notifications yet.</p>
+        </div>
+      </div>
     </div>
 </body>
 </html>

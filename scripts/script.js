@@ -4,6 +4,11 @@
 class GalleryManager {
     constructor() {
         this.galleryItems = [];
+        this.page = 1;
+        this.pageSize = 20;
+        this.loadingMore = false;
+        this.allLoaded = false;
+        this.userId = null;
         this.loadFromAPI();
         this.initCurrentYear();
     }
@@ -12,14 +17,43 @@ class GalleryManager {
         document.getElementById('currentYear').textContent = new Date().getFullYear();
     }
 
-    async loadFromAPI() {
+    async loadFromAPI({ append = false, reset = false, userId = undefined } = {}) {
+        if (this.loadingMore || this.allLoaded) return;
+        this.loadingMore = true;
+        document.getElementById('loading').style.display = 'block';
+
+        if (reset) {
+            this.page = 1;
+            this.allLoaded = false;
+            this.galleryItems = [];
+            this.userId = userId !== undefined ? userId : null;
+        }
+        if (userId !== undefined) this.userId = userId;
+
         try {
-            const response = await fetch('/.netlify/functions/get-gallery');
+            let url = `/.netlify/functions/get-gallery?page=${this.page}&pageSize=${this.pageSize}`;
+            if (this.userId) url += `&user_id=${this.userId}`;
+            const response = await fetch(url);
             const items = await response.json();
-            this.galleryItems = items;
-            this.renderGallery();
+
+            if (Array.isArray(items) && items.length > 0) {
+                if (append) {
+                    this.galleryItems = this.galleryItems.concat(items);
+                } else {
+                    this.galleryItems = items;
+                }
+                this.renderGallery();
+                if (items.length < this.pageSize) {
+                    this.allLoaded = true;
+                }
+            } else {
+                this.allLoaded = true;
+            }
         } catch (error) {
             console.error('Failed to load gallery items:', error);
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+            this.loadingMore = false;
         }
     }
 
@@ -46,6 +80,7 @@ class GalleryManager {
             galleryItem.className = 'gallery-item';
             galleryItem.dataset.category = item.category;
             galleryItem.dataset.tags = item.tags.join(',');
+            galleryItem.dataset.id = item.id;
 
             const isVideo = item.type === 'video';
             
@@ -68,10 +103,21 @@ class GalleryManager {
                     <h3>${item.title}</h3>
                     <p>${item.description}</p>
                 </div>
-                <div class="item-actions">
-                    <button class="action-btn" aria-label="Like"><i class="fas fa-heart"></i> Like</button>
-                    <button class="action-btn" aria-label="Share"><i class="fas fa-share"></i> Share</button>
-                    <button class="save-btn" aria-label="Save">Save</button>
+                <div class="gallery-item-interactions">
+                    <div class="interaction-buttons">
+                        <button class="interaction-btn like-btn" data-item-id="${item.id}" aria-label="Like">
+                            <i class="fas fa-heart"></i>
+                            <span class="like-count">${item.like_count || 0}</span>
+                        </button>
+                        <button class="interaction-btn comment-btn" data-item-id="${item.id}" aria-label="Comments">
+                            <i class="fas fa-comment"></i>
+                            <span class="comment-count">${item.comment_count || 0}</span>
+                        </button>
+                    </div>
+                    <div class="interaction-counts">
+                        <span>${item.like_count || 0} likes</span>
+                        <span>${item.comment_count || 0} comments</span>
+                    </div>
                 </div>
             `;
 
@@ -79,6 +125,7 @@ class GalleryManager {
         });
 
         this.setupVideoHover();
+        this.setupInteractionButtons();
     }
 
     setupVideoHover() {
@@ -86,7 +133,10 @@ class GalleryManager {
         
         videos.forEach(video => {
             video.addEventListener('mouseenter', function() {
-                this.play().catch(e => console.log('Autoplay prevented:', e));
+                // Only try to play if user has interacted with the page
+                if (document.body.classList.contains('user-interacted')) {
+                    this.play().catch(e => console.log('Autoplay prevented:', e));
+                }
             });
             
             video.addEventListener('mouseleave', function() {
@@ -94,6 +144,36 @@ class GalleryManager {
                 this.currentTime = 0;
             });
         });
+    }
+
+    setupInteractionButtons() {
+        const likeButtons = document.querySelectorAll('.like-btn');
+        const commentButtons = document.querySelectorAll('.comment-btn');
+        
+        likeButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Delegate to the app instance
+                window.galleryApp.handleLike(btn);
+            });
+        });
+        
+        commentButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Delegate to the app instance
+                window.galleryApp.handleComment(btn);
+            });
+        });
+    }
+
+    handleScroll() {
+        const gm = this.galleryManager;
+        if (gm.loadingMore || gm.allLoaded) return;
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+            gm.page++;
+            gm.loadFromAPI({ append: true });
+        }
     }
 }
 
@@ -166,6 +246,20 @@ class GalleryApp {
 
         // Infinite scroll
         window.addEventListener('scroll', () => this.handleScroll());
+
+        // Comments modal
+        document.getElementById('closeCommentsModal').addEventListener('click', () => this.closeCommentsModal());
+        document.getElementById('commentForm').addEventListener('submit', (e) => this.handleCommentSubmit(e));
+
+        // Notification modal
+        document.querySelector('button[aria-label="Notifications"]').addEventListener('click', () => {
+            document.getElementById('notificationModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        document.getElementById('closeNotificationModal').addEventListener('click', () => {
+            document.getElementById('notificationModal').classList.remove('active');
+            document.body.style.overflow = '';
+        });
     }
 
     performSearch() {
@@ -373,14 +467,191 @@ class GalleryApp {
         }, 3000);
     }
 
-    handleScroll() {
-        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
-            document.getElementById('loading').style.display = 'block';
+    async handleLike(btn) {
+        const itemId = btn.dataset.itemId;
+        
+        try {
+            const { data: { session } } = await this.supa.auth.getSession();
+            if (!session) {
+                this.showNotification('Please sign in to like items', 'error');
+                return;
+            }
+
+            const response = await fetch('/.netlify/functions/toggle-like', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({ galleryItemId: itemId })
+            });
+
+            const result = await response.json();
             
-            // In a real app, you would fetch more content here
-            setTimeout(() => {
-                document.getElementById('loading').style.display = 'none';
-            }, 1500);
+            if (response.ok) {
+                const likeCount = btn.querySelector('.like-count');
+                const currentCount = parseInt(likeCount.textContent);
+                
+                if (result.liked) {
+                    btn.classList.add('liked');
+                    likeCount.textContent = currentCount + 1;
+                    this.showNotification('Liked!', 'success');
+                } else {
+                    btn.classList.remove('liked');
+                    likeCount.textContent = Math.max(0, currentCount - 1);
+                }
+                
+                // Update the counts display
+                const item = btn.closest('.gallery-item');
+                const countsDisplay = item.querySelector('.interaction-counts');
+                countsDisplay.innerHTML = `
+                    <span>${likeCount.textContent} likes</span>
+                    <span>${item.querySelector('.comment-count').textContent} comments</span>
+                `;
+            } else {
+                this.showNotification(result.error || 'Failed to like item', 'error');
+            }
+        } catch (error) {
+            console.error('Error handling like:', error);
+            this.showNotification('Failed to like item', 'error');
+        }
+    }
+
+    async handleComment(btn) {
+        const itemId = btn.dataset.itemId;
+        
+        try {
+            const { data: { session } } = await this.supa.auth.getSession();
+            if (!session) {
+                this.showNotification('Please sign in to comment', 'error');
+                return;
+            }
+
+            this.currentItemId = itemId;
+            this.openCommentsModal();
+            await this.loadComments(itemId);
+        } catch (error) {
+            console.error('Error opening comments:', error);
+            this.showNotification('Failed to load comments', 'error');
+        }
+    }
+
+    openCommentsModal() {
+        document.getElementById('commentsModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeCommentsModal() {
+        document.getElementById('commentsModal').classList.remove('active');
+        document.body.style.overflow = '';
+        this.currentItemId = null;
+    }
+
+    async loadComments(itemId) {
+        try {
+            const response = await fetch('/.netlify/functions/get-comments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ galleryItemId: itemId })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok) {
+                this.renderComments(result.comments || []);
+            } else {
+                this.showNotification(result.error || 'Failed to load comments', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading comments:', error);
+            this.showNotification('Failed to load comments', 'error');
+        }
+    }
+
+    renderComments(comments) {
+        const commentsList = document.getElementById('commentsList');
+        
+        if (comments.length === 0) {
+            commentsList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No comments yet. Be the first to comment!</p>';
+            return;
+        }
+
+        commentsList.innerHTML = comments.map(comment => `
+            <div class="comment-item">
+                <div class="comment-header">
+                    <span class="comment-author">${comment.profiles?.email || 'Unknown User'}</span>
+                    <span class="comment-date">${new Date(comment.created_at).toLocaleDateString()}</span>
+                </div>
+                <div class="comment-content">${comment.content}</div>
+            </div>
+        `).join('');
+    }
+
+    async handleCommentSubmit(e) {
+        e.preventDefault();
+        
+        const commentInput = document.getElementById('commentInput');
+        const content = commentInput.value.trim();
+        
+        if (!content) return;
+
+        try {
+            const { data: { session } } = await this.supa.auth.getSession();
+            if (!session) {
+                this.showNotification('Please sign in to comment', 'error');
+                return;
+            }
+
+            const response = await fetch('/.netlify/functions/add-comment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                    galleryItemId: this.currentItemId,
+                    content: content
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok) {
+                commentInput.value = '';
+                await this.loadComments(this.currentItemId);
+                this.showNotification('Comment added successfully!', 'success');
+                
+                // Update comment count in gallery
+                const commentBtn = document.querySelector(`.comment-btn[data-item-id="${this.currentItemId}"]`);
+                const commentCount = commentBtn.querySelector('.comment-count');
+                const currentCount = parseInt(commentCount.textContent);
+                commentCount.textContent = currentCount + 1;
+                
+                // Update the counts display
+                const item = commentBtn.closest('.gallery-item');
+                const countsDisplay = item.querySelector('.interaction-counts');
+                const likeCount = item.querySelector('.like-count').textContent;
+                countsDisplay.innerHTML = `
+                    <span>${likeCount} likes</span>
+                    <span>${commentCount.textContent} comments</span>
+                `;
+            } else {
+                this.showNotification(result.error || 'Failed to add comment', 'error');
+            }
+        } catch (error) {
+            console.error('Error adding comment:', error);
+            this.showNotification('Failed to add comment', 'error');
+        }
+    }
+
+    handleScroll() {
+        const gm = this.galleryManager;
+        if (gm.loadingMore || gm.allLoaded) return;
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+            gm.page++;
+            gm.loadFromAPI({ append: true });
         }
     }
 }
@@ -456,6 +727,70 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('openAuthModal').addEventListener('click', openAuthModal);
   supa.auth.onAuthStateChange(checkAuthSession);
 
-  // Initialize the rest of the app
-  new GalleryApp(supa);
+  // Add gallery filter buttons to the UI
+  const filterBar = document.createElement('div');
+  filterBar.className = 'gallery-filter-bar';
+  filterBar.innerHTML = `
+    <button id="allMediaBtn" class="gallery-filter-btn active">All Media</button>
+    <button id="myGalleryBtn" class="gallery-filter-btn">My Gallery</button>
+  `;
+  document.querySelector('main').insertAdjacentElement('beforebegin', filterBar);
+
+  // Profile modal logic
+  const profileModal = document.getElementById('profileModal');
+  const closeProfileModal = document.getElementById('closeProfileModal');
+  const signOutBtn = document.getElementById('signOutBtn');
+  const profileEmail = document.getElementById('profileEmail');
+
+  function openProfileModal() {
+    supa.auth.getUser().then(({ data }) => {
+      profileEmail.textContent = data?.user?.email || '-';
+      profileModal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    });
+  }
+  function closeProfile() {
+    profileModal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+  closeProfileModal.addEventListener('click', closeProfile);
+  signOutBtn.addEventListener('click', async () => {
+    await supa.auth.signOut();
+    closeProfile();
+    location.reload();
+  });
+
+  // Wire up user profile icon to open modal
+  document.querySelector('.user-actions button[aria-label="User profile"]').addEventListener('click', openProfileModal);
+
+  // Enable video autoplay after user interaction
+  document.addEventListener('click', () => {
+    document.body.classList.add('user-interacted');
+  }, { once: true });
+
+  // Pass supa to GalleryApp
+  const app = new GalleryApp(supa);
+  window.galleryApp = app; // Make app globally available
+
+  // Wire up filter buttons
+  document.getElementById('allMediaBtn').addEventListener('click', () => {
+    document.getElementById('allMediaBtn').classList.add('active');
+    document.getElementById('myGalleryBtn').classList.remove('active');
+    app.galleryManager.page = 1;
+    app.galleryManager.allLoaded = false;
+    app.galleryManager.loadFromAPI({ reset: true, userId: null });
+  });
+  document.getElementById('myGalleryBtn').addEventListener('click', async () => {
+    document.getElementById('myGalleryBtn').classList.add('active');
+    document.getElementById('allMediaBtn').classList.remove('active');
+    const userResult = await supa.auth.getUser();
+    const user = userResult.data?.user;
+    app.galleryManager.page = 1;
+    app.galleryManager.allLoaded = false;
+    if (user) {
+      app.galleryManager.loadFromAPI({ reset: true, userId: user.id });
+    } else {
+      app.galleryManager.loadFromAPI({ reset: true, userId: null });
+    }
+  });
 });
