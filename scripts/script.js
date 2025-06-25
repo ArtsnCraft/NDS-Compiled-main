@@ -238,14 +238,19 @@ class GalleryApp {
         const searchButton = document.querySelector('.search-bar button');
         const categoryFilters = document.querySelectorAll('.category-filter');
         
-        searchInput.addEventListener('input', () => this.performSearch());
+        const debouncedSearch = this.debounce(() => this.performSearch(), 200);
+        searchInput.addEventListener('input', debouncedSearch);
+        
         searchButton.addEventListener('click', () => {
             searchInput.value = '';
-            this.performSearch();
+            debouncedSearch();
         });
         
         categoryFilters.forEach(btn => {
-            btn.addEventListener('click', () => this.filterByCategory(btn));
+            btn.addEventListener('click', () => {
+                this.filterByCategory(btn);
+                debouncedSearch();
+            });
         });
 
         // Upload modal
@@ -742,6 +747,15 @@ class GalleryApp {
         document.body.style.overflow = '';
         modal.dispatchEvent(new Event('modalClose'));
     }
+
+    // Debounce utility
+    debounce(fn, delay) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1062,5 +1076,34 @@ document.addEventListener('DOMContentLoaded', function() {
   const openProfileModalBtn = document.querySelector('.user-actions button[aria-label="User profile"]');
   if (openProfileModalBtn) {
     openProfileModalBtn.addEventListener('click', fetchProfile);
+  }
+
+  // After GalleryApp initialization and inside DOMContentLoaded
+  const myGalleryBtn = document.getElementById('myGalleryBtn');
+  if (myGalleryBtn) {
+    myGalleryBtn.addEventListener('click', async () => {
+      document.querySelectorAll('.category-filter').forEach(btn => btn.classList.remove('active'));
+      myGalleryBtn.classList.add('active');
+      const userResult = await window.galleryApp.supa.auth.getUser();
+      const user = userResult.data?.user;
+      window.galleryApp.galleryManager.page = 1;
+      window.galleryApp.galleryManager.allLoaded = false;
+      if (user) {
+        window.galleryApp.galleryManager.loadFromAPI({ reset: true, userId: user.id });
+      } else {
+        window.galleryApp.galleryManager.loadFromAPI({ reset: true, userId: null });
+      }
+    });
+  }
+
+  const allMediaBtn = document.getElementById('allMediaBtn');
+  if (allMediaBtn) {
+    allMediaBtn.addEventListener('click', () => {
+      document.querySelectorAll('.category-filter').forEach(btn => btn.classList.remove('active'));
+      allMediaBtn.classList.add('active');
+      window.galleryApp.galleryManager.page = 1;
+      window.galleryApp.galleryManager.allLoaded = false;
+      window.galleryApp.galleryManager.loadFromAPI({ reset: true, userId: null });
+    });
   }
 });
