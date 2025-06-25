@@ -35,7 +35,8 @@
     </header>
 
     <section class="category-filters">
-        <button class="category-filter active" data-category="all">All</button>
+        <button class="category-filter active" data-category="all" id="allMediaBtn">All</button>
+        <button class="category-filter" data-category="my-gallery" id="myGalleryBtn">My Gallery</button>
         <button class="category-filter" data-category="birds">Birds</button>
         <button class="category-filter" data-category="pets">Pets</button>
         <button class="category-filter" data-category="landscape">Landscape</button>
@@ -46,6 +47,12 @@
     <main>
         <div class="gallery" id="galleryContainer">
             <!-- Gallery items will be dynamically loaded here -->
+        </div>
+        <div class="gallery-skeletons" id="gallerySkeletons" style="display:none;">
+            <!-- Skeleton cards will be injected here -->
+        </div>
+        <div class="end-message" id="endMessage" style="display:none;">
+            <p>You've reached the end!</p>
         </div>
         
         <div class="loading-more" id="loading">
@@ -172,10 +179,30 @@
                 <h2 class="modal-title">My Profile</h2>
                 <button class="close-btn" id="closeProfileModal" aria-label="Close modal">&times;</button>
             </div>
-            <div class="profile-info">
-                <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
-                <button class="submit-btn" id="signOutBtn">Sign Out</button>
-            </div>
+            <form id="profileForm">
+                <div class="profile-email-row">
+                    <span id="profileEmail"></span>
+                    <button type="button" id="signOutBtn" class="secondary-btn" style="float:right;">Sign Out</button>
+                </div>
+                <div class="profile-avatar-section">
+                    <label for="profileAvatarInput" class="profile-avatar-label">
+                        <img id="profileAvatar" class="profile-avatar" src="assets/default-avatar.png" alt="Profile picture" />
+                        <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;">
+                        <span class="avatar-edit-text">Change</span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="profileDisplayName" class="form-label">Display Name</label>
+                    <input type="text" id="profileDisplayName" class="form-input" placeholder="Enter display name">
+                </div>
+                <div class="form-group">
+                    <label for="profileBio" class="form-label">Bio</label>
+                    <textarea id="profileBio" class="form-textarea" rows="2" placeholder="Tell us about yourself"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -207,6 +234,23 @@
         </div>
         <div class="notifications-list" id="notificationsList">
           <p>No notifications yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <button class="back-to-top" id="backToTopBtn" aria-label="Back to top" style="display:none;">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- Media Detail Modal -->
+    <div class="modal" id="mediaDetailModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title" id="mediaDetailTitle">Media Details</h2>
+          <button class="close-btn" id="closeMediaDetailModal" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="media-detail-body" id="mediaDetailBody">
+          <!-- Media details will be loaded here -->
         </div>
       </div>
     </div>

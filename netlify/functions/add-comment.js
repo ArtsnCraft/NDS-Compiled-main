@@ -49,6 +49,27 @@ exports.handler = async (event, context) => {
 
     if (error) throw error;
 
+    // After adding comment, fetch the gallery item
+    const { data: galleryItemData, error: galleryItemError } = await supabase
+      .from('gallery_items')
+      .select('*')
+      .eq('id', galleryItemId)
+      .single();
+    if (!galleryItemError && galleryItemData && galleryItemData.user_id !== user.id) {
+      await supabase
+        .from('notifications')
+        .insert([{
+          user_id: galleryItemData.user_id,
+          type: 'comment',
+          data: {
+            gallery_item_id: galleryItemData.id,
+            actor_id: user.id,
+            actor_email: user.email,
+            content: content
+          }
+        }]);
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({ comment: data })

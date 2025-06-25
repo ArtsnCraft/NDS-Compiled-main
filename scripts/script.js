@@ -21,6 +21,9 @@ class GalleryManager {
         if (this.loadingMore || this.allLoaded) return;
         this.loadingMore = true;
         document.getElementById('loading').style.display = 'block';
+        document.getElementById('gallerySkeletons').style.display = 'flex';
+        this.showSkeletons();
+        document.getElementById('endMessage').style.display = 'none';
 
         if (reset) {
             this.page = 1;
@@ -53,7 +56,12 @@ class GalleryManager {
             console.error('Failed to load gallery items:', error);
         } finally {
             document.getElementById('loading').style.display = 'none';
+            document.getElementById('gallerySkeletons').style.display = 'none';
             this.loadingMore = false;
+            this.hideSkeletons();
+            if (this.allLoaded) {
+                document.getElementById('endMessage').style.display = 'block';
+            }
         }
     }
 
@@ -87,6 +95,7 @@ class GalleryManager {
             galleryItem.innerHTML = `
                 <div class="image-wrapper">
                     <span class="category-tag">${item.category}</span>
+                    <div class="hover-overlay"></div>
                     ${isVideo ? `
                         <video loading="lazy">
                             <source src="${item.src}" type="video/mp4">
@@ -120,6 +129,13 @@ class GalleryManager {
                     </div>
                 </div>
             `;
+
+            // Make the card clickable
+            galleryItem.addEventListener('click', (e) => {
+                // Prevent click if like/comment button is clicked
+                if (e.target.closest('.interaction-btn')) return;
+                window.galleryApp.openMediaDetailModal(item);
+            });
 
             galleryContainer.appendChild(galleryItem);
         });
@@ -174,6 +190,20 @@ class GalleryManager {
             gm.page++;
             gm.loadFromAPI({ append: true });
         }
+    }
+
+    showSkeletons() {
+        const skeletons = document.getElementById('gallerySkeletons');
+        skeletons.innerHTML = '';
+        for (let i = 0; i < 4; i++) {
+            const div = document.createElement('div');
+            div.className = 'skeleton-card';
+            skeletons.appendChild(div);
+        }
+    }
+
+    hideSkeletons() {
+        document.getElementById('gallerySkeletons').innerHTML = '';
     }
 }
 
@@ -253,12 +283,10 @@ class GalleryApp {
 
         // Notification modal
         document.querySelector('button[aria-label="Notifications"]').addEventListener('click', () => {
-            document.getElementById('notificationModal').classList.add('active');
-            document.body.style.overflow = 'hidden';
+            this.openModal(document.getElementById('notificationModal'));
         });
         document.getElementById('closeNotificationModal').addEventListener('click', () => {
-            document.getElementById('notificationModal').classList.remove('active');
-            document.body.style.overflow = '';
+            this.closeModal(document.getElementById('notificationModal'));
         });
     }
 
@@ -294,13 +322,11 @@ class GalleryApp {
     }
 
     openUploadModal() {
-        document.getElementById('uploadModal').classList.add('active');
-        document.body.style.overflow = 'hidden';
+        this.openModal(document.getElementById('uploadModal'));
     }
 
     closeUploadModal() {
-        document.getElementById('uploadModal').classList.remove('active');
-        document.body.style.overflow = '';
+        this.closeModal(document.getElementById('uploadModal'));
         this.resetUploadForm();
     }
 
@@ -537,13 +563,11 @@ class GalleryApp {
     }
 
     openCommentsModal() {
-        document.getElementById('commentsModal').classList.add('active');
-        document.body.style.overflow = 'hidden';
+        this.openModal(document.getElementById('commentsModal'));
     }
 
     closeCommentsModal() {
-        document.getElementById('commentsModal').classList.remove('active');
-        document.body.style.overflow = '';
+        this.closeModal(document.getElementById('commentsModal'));
         this.currentItemId = null;
     }
 
@@ -654,9 +678,73 @@ class GalleryApp {
             gm.loadFromAPI({ append: true });
         }
     }
+
+    openMediaDetailModal(item) {
+        const modal = document.getElementById('mediaDetailModal');
+        const body = document.getElementById('mediaDetailBody');
+        document.getElementById('mediaDetailTitle').textContent = item.title || 'Media Details';
+        body.innerHTML = `
+            <div style="text-align:center;">
+                ${item.type === 'video' ?
+                    `<video controls style='max-width:100%;border-radius:12px;' loading='lazy'><source src='${item.src}' type='video/mp4'></video>` :
+                    `<img src='${item.src}' alt='${item.title}' style='max-width:100%;border-radius:12px;' loading='lazy'>`
+                }
+            </div>
+            <p><strong>Description:</strong> ${item.description || '-'}</p>
+            <p><strong>Category:</strong> ${item.category}</p>
+            <p><strong>Tags:</strong> ${item.tags && item.tags.length ? item.tags.join(', ') : '-'}</p>
+            <p><strong>Likes:</strong> ${item.like_count || 0} &nbsp; <strong>Comments:</strong> ${item.comment_count || 0}</p>
+        `;
+        this.openModal(modal);
+    }
+
+    closeMediaDetailModal() {
+        this.closeModal(document.getElementById('mediaDetailModal'));
+    }
+
+    // Focus trap for modals
+    trapFocus(modal) {
+        const focusableSelectors = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        const focusableEls = modal.querySelectorAll(focusableSelectors);
+        if (!focusableEls.length) return;
+        const firstEl = focusableEls[0];
+        const lastEl = focusableEls[focusableEls.length - 1];
+        function handleTab(e) {
+            if (e.key !== 'Tab') return;
+            if (e.shiftKey) {
+                if (document.activeElement === firstEl) {
+                    e.preventDefault();
+                    lastEl.focus();
+                }
+            } else {
+                if (document.activeElement === lastEl) {
+                    e.preventDefault();
+                    firstEl.focus();
+                }
+            }
+        }
+        modal.addEventListener('keydown', handleTab);
+        // Focus first element
+        setTimeout(() => firstEl.focus(), 50);
+        // Remove handler on close
+        function cleanup() { modal.removeEventListener('keydown', handleTab); }
+        modal.addEventListener('modalClose', cleanup, { once: true });
+    }
+
+    // Patch modal open/close logic to use focus trap
+    openModal(modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        this.trapFocus(modal);
+    }
+    closeModal(modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+        modal.dispatchEvent(new Event('modalClose'));
+    }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
   // Initialize Supabase client
   const supa = supabase.createClient(
     'https://cgvwfhvhuwrzekmiimrr.supabase.co',
@@ -727,15 +815,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('openAuthModal').addEventListener('click', openAuthModal);
   supa.auth.onAuthStateChange(checkAuthSession);
 
-  // Add gallery filter buttons to the UI
-  const filterBar = document.createElement('div');
-  filterBar.className = 'gallery-filter-bar';
-  filterBar.innerHTML = `
-    <button id="allMediaBtn" class="gallery-filter-btn active">All Media</button>
-    <button id="myGalleryBtn" class="gallery-filter-btn">My Gallery</button>
-  `;
-  document.querySelector('main').insertAdjacentElement('beforebegin', filterBar);
-
   // Profile modal logic
   const profileModal = document.getElementById('profileModal');
   const closeProfileModal = document.getElementById('closeProfileModal');
@@ -772,25 +851,216 @@ document.addEventListener('DOMContentLoaded', () => {
   const app = new GalleryApp(supa);
   window.galleryApp = app; // Make app globally available
 
-  // Wire up filter buttons
-  document.getElementById('allMediaBtn').addEventListener('click', () => {
-    document.getElementById('allMediaBtn').classList.add('active');
-    document.getElementById('myGalleryBtn').classList.remove('active');
-    app.galleryManager.page = 1;
-    app.galleryManager.allLoaded = false;
-    app.galleryManager.loadFromAPI({ reset: true, userId: null });
-  });
-  document.getElementById('myGalleryBtn').addEventListener('click', async () => {
-    document.getElementById('myGalleryBtn').classList.add('active');
-    document.getElementById('allMediaBtn').classList.remove('active');
-    const userResult = await supa.auth.getUser();
-    const user = userResult.data?.user;
-    app.galleryManager.page = 1;
-    app.galleryManager.allLoaded = false;
-    if (user) {
-      app.galleryManager.loadFromAPI({ reset: true, userId: user.id });
+  // Back to top button logic
+  const backToTopBtn = document.getElementById('backToTopBtn');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 400) {
+      backToTopBtn.style.display = 'flex';
     } else {
-      app.galleryManager.loadFromAPI({ reset: true, userId: null });
+      backToTopBtn.style.display = 'none';
     }
   });
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // Media Detail Modal close button
+  document.getElementById('closeMediaDetailModal').addEventListener('click', () => {
+    window.galleryApp.closeModal(document.getElementById('mediaDetailModal'));
+  });
+
+  // ESC key closes any open modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal.active').forEach(modal => {
+        window.galleryApp.closeModal(modal);
+      });
+      document.body.style.overflow = '';
+    }
+  });
+
+  // Inline validation for upload form
+  const uploadForm = document.getElementById('uploadForm');
+  if (uploadForm) {
+    uploadForm.addEventListener('submit', function(e) {
+      let valid = true;
+      // Remove previous errors
+      uploadForm.querySelectorAll('.form-error').forEach(el => el.remove());
+      // Title
+      const title = document.getElementById('mediaTitle');
+      if (!title.value.trim()) {
+        valid = false;
+        const err = document.createElement('div');
+        err.className = 'form-error';
+        err.textContent = 'Title is required.';
+        title.parentNode.appendChild(err);
+      }
+      // Category
+      const category = document.getElementById('mediaCategory');
+      if (!category.value) {
+        valid = false;
+        const err = document.createElement('div');
+        err.className = 'form-error';
+        err.textContent = 'Category is required.';
+        category.parentNode.appendChild(err);
+      }
+      // File
+      const file = document.getElementById('fileInput');
+      if (!file.files || !file.files.length) {
+        valid = false;
+        const err = document.createElement('div');
+        err.className = 'form-error';
+        err.textContent = 'Please select a file.';
+        file.parentNode.appendChild(err);
+      }
+      if (!valid) {
+        e.preventDefault();
+      }
+    });
+  }
+
+  // --- Notification Frontend Integration ---
+  async function fetchNotifications() {
+    const userResult = await window.galleryApp.supa.auth.getSession();
+    const session = userResult.data?.session;
+    if (!session) return [];
+    const res = await fetch('/.netlify/functions/get-notifications', {
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  }
+
+  async function markNotificationsRead() {
+    const userResult = await window.galleryApp.supa.auth.getSession();
+    const session = userResult.data?.session;
+    if (!session) return;
+    await fetch('/.netlify/functions/mark-notifications-read', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    });
+  }
+
+  function renderNotifications(notifications) {
+    const list = document.getElementById('notificationsList');
+    if (!notifications.length) {
+      list.innerHTML = '<p>No notifications yet.</p>';
+      return;
+    }
+    list.innerHTML = notifications.map(n => {
+      let msg = '';
+      if (n.type === 'like') {
+        msg = `<strong>${n.data.actor_email}</strong> liked your post.`;
+      } else if (n.type === 'comment') {
+        msg = `<strong>${n.data.actor_email}</strong> commented: "${n.data.content}"`;
+      } else {
+        msg = n.type;
+      }
+      return `<div class="notification-item${n.is_read ? '' : ' unread'}">${msg}<br><small>${new Date(n.created_at).toLocaleString()}</small></div>`;
+    }).join('');
+  }
+
+  // Show badge for unread notifications
+  async function updateNotificationBadge() {
+    const notifications = await fetchNotifications();
+    const unread = notifications.filter(n => !n.is_read).length;
+    const badge = document.querySelector('button[aria-label="Notifications"] .badge');
+    if (badge) {
+      badge.style.display = unread > 0 ? 'inline-block' : 'none';
+      badge.textContent = unread;
+    }
+  }
+
+  // When notification modal opens, fetch and render notifications, mark as read
+  const notificationBtn = document.querySelector('button[aria-label="Notifications"]');
+  const notificationModal = document.getElementById('notificationModal');
+  if (notificationBtn && notificationModal) {
+    notificationBtn.addEventListener('click', async () => {
+      const notifications = await fetchNotifications();
+      renderNotifications(notifications);
+      await markNotificationsRead();
+      setTimeout(updateNotificationBadge, 500); // update badge after marking read
+    });
+  }
+  // Update badge on page load and every 60s
+  updateNotificationBadge();
+  setInterval(updateNotificationBadge, 60000);
+
+  // --- Profile Modal Enhancements ---
+  const profileForm = document.getElementById('profileForm');
+  const profileAvatar = document.getElementById('profileAvatar');
+  const profileAvatarInput = document.getElementById('profileAvatarInput');
+  const profileDisplayName = document.getElementById('profileDisplayName');
+  const profileBio = document.getElementById('profileBio');
+
+  async function fetchProfile() {
+    const userResult = await window.galleryApp.supa.auth.getUser();
+    const user = userResult.data?.user;
+    if (!user) return;
+    const { data, error } = await window.galleryApp.supa
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    if (data) {
+      profileDisplayName.value = data.username || '';
+      profileBio.value = data.bio || '';
+      profileAvatar.src = data.avatar_url || 'assets/default-avatar.png';
+    } else {
+      profileDisplayName.value = '';
+      profileBio.value = '';
+      profileAvatar.src = 'assets/default-avatar.png';
+    }
+  }
+
+  // Show preview when user selects a new avatar
+  profileAvatarInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      profileAvatar.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Save profile changes
+  profileForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const userResult = await window.galleryApp.supa.auth.getUser();
+    const user = userResult.data?.user;
+    if (!user) return;
+    let avatar_url = profileAvatar.src;
+    // If a new avatar is selected, upload to Supabase Storage
+    if (profileAvatarInput.files && profileAvatarInput.files[0]) {
+      const file = profileAvatarInput.files[0];
+      const ext = file.name.split('.').pop();
+      const filePath = `avatars/${user.id}.${ext}`;
+      const { data: uploadData, error: uploadError } = await window.galleryApp.supa.storage.from('media').upload(filePath, file, { upsert: true });
+      if (!uploadError) {
+        const { data: urlData } = window.galleryApp.supa.storage.from('media').getPublicUrl(filePath);
+        avatar_url = urlData.publicUrl;
+      }
+    }
+    // Upsert profile info
+    const { error } = await window.galleryApp.supa
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        username: profileDisplayName.value,
+        bio: profileBio.value,
+        avatar_url
+      });
+    if (!error) {
+      window.galleryApp.showNotification('Profile updated!', 'success');
+    } else {
+      window.galleryApp.showNotification('Failed to update profile', 'error');
+    }
+  });
+
+  // Fetch profile info when opening modal
+  const openProfileModalBtn = document.querySelector('.user-actions button[aria-label="User profile"]');
+  if (openProfileModalBtn) {
+    openProfileModalBtn.addEventListener('click', fetchProfile);
+  }
 });

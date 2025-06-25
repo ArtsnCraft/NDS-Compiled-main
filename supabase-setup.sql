@@ -56,4 +56,30 @@ $$ language 'plpgsql';
 -- Trigger for comments updated_at
 CREATE TRIGGER update_comments_updated_at 
   BEFORE UPDATE ON comments 
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); 
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Profiles table for user profile enhancements
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+  username TEXT,
+  bio TEXT,
+  avatar_url TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+);
+
+-- Profiles RLS
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Profiles policies
+CREATE POLICY IF NOT EXISTS "Users can view their own profile"
+  ON profiles FOR SELECT
+  USING (auth.uid() = id);
+
+CREATE POLICY IF NOT EXISTS "Users can update their own profile"
+  ON profiles FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+CREATE POLICY IF NOT EXISTS "Users can insert their own profile"
+  ON profiles FOR INSERT
+  WITH CHECK (auth.uid() = id); 
