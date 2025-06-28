@@ -688,23 +688,99 @@ class GalleryApp {
         const modal = document.getElementById('mediaDetailModal');
         const body = document.getElementById('mediaDetailBody');
         document.getElementById('mediaDetailTitle').textContent = item.title || 'Media Details';
+        
+        // Create a more natural image display that respects the image's aspect ratio
+        const isVideo = item.type === 'video';
+        const mediaElement = isVideo ? 
+            `<video controls style='max-width:100%; max-height:60vh; border-radius:12px; object-fit:contain;' loading='lazy'>
+                <source src='${item.src}' type='video/mp4'>
+            </video>` :
+            `<img src='${item.src}' alt='${item.title}' style='max-width:100%; max-height:60vh; border-radius:12px; object-fit:contain;' loading='lazy'>`;
+        
         body.innerHTML = `
-            <div style="text-align:center;">
-                ${item.type === 'video' ?
-                    `<video controls style='max-width:100%;border-radius:12px;' loading='lazy'><source src='${item.src}' type='video/mp4'></video>` :
-                    `<img src='${item.src}' alt='${item.title}' style='max-width:100%;border-radius:12px;' loading='lazy'>`
-                }
+            <div class="media-container">
+                ${mediaElement}
             </div>
-            <p><strong>Description:</strong> ${item.description || '-'}</p>
-            <p><strong>Category:</strong> ${item.category}</p>
-            <p><strong>Tags:</strong> ${item.tags && item.tags.length ? item.tags.join(', ') : '-'}</p>
-            <p><strong>Likes:</strong> ${item.like_count || 0} &nbsp; <strong>Comments:</strong> ${item.comment_count || 0}</p>
         `;
+        
+        // Add navigation arrows
+        this.addNavigationArrows(modal, item);
+        
         this.openModal(modal);
     }
 
+    addNavigationArrows(modal, currentItem) {
+        // Remove existing arrows
+        const existingArrows = modal.querySelectorAll('.nav-arrow');
+        existingArrows.forEach(arrow => arrow.remove());
+        
+        // Get all visible gallery items
+        const items = Array.from(document.querySelectorAll('.gallery-item'))
+            .map(el => {
+                const id = el.dataset.id;
+                return this.galleryManager.galleryItems.find(i => i.id == id);
+            })
+            .filter(Boolean);
+        
+        const currentIndex = items.findIndex(i => i.id === currentItem.id);
+        
+        // Create navigation arrows
+        const prevArrow = document.createElement('button');
+        prevArrow.className = 'nav-arrow prev';
+        prevArrow.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        prevArrow.disabled = currentIndex <= 0;
+        prevArrow.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                this.openMediaDetailModal(items[currentIndex - 1]);
+            }
+        });
+        
+        const nextArrow = document.createElement('button');
+        nextArrow.className = 'nav-arrow next';
+        nextArrow.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        nextArrow.disabled = currentIndex >= items.length - 1;
+        nextArrow.addEventListener('click', () => {
+            if (currentIndex < items.length - 1) {
+                this.openMediaDetailModal(items[currentIndex + 1]);
+            }
+        });
+        
+        modal.appendChild(prevArrow);
+        modal.appendChild(nextArrow);
+        
+        // Add keyboard navigation
+        const handleKey = (e) => {
+            if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                e.preventDefault();
+                this.openMediaDetailModal(items[currentIndex - 1]);
+            } else if (e.key === 'ArrowRight' && currentIndex < items.length - 1) {
+                e.preventDefault();
+                this.openMediaDetailModal(items[currentIndex + 1]);
+            }
+        };
+        
+        modal.addEventListener('keydown', handleKey);
+        modal.tabIndex = 0;
+        setTimeout(() => modal.focus(), 50);
+        
+        // Store the handler for cleanup
+        modal._keyHandler = handleKey;
+    }
+
     closeMediaDetailModal() {
-        this.closeModal(document.getElementById('mediaDetailModal'));
+        const modal = document.getElementById('mediaDetailModal');
+        
+        // Clean up navigation event listeners
+        if (modal._keyHandler) {
+            modal.removeEventListener('keydown', modal._keyHandler);
+            delete modal._keyHandler;
+        }
+        
+        // Remove navigation arrows
+        const arrows = modal.querySelectorAll('.nav-arrow');
+        arrows.forEach(arrow => arrow.remove());
+        
+        this.closeModal(modal);
     }
 
     // Focus trap for modals
