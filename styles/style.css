@@ -310,6 +310,17 @@ body.dark-mode .theme-toggle::after {
     transform: scale(0.95);
 }
 
+.upload-btn i {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 2rem;
+    margin: 0;
+    padding: 0;
+}
+
 /* Animated modal backdrop */
 .modal {
     position: fixed;
