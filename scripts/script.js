@@ -20,6 +20,8 @@ class GalleryManager {
     async loadFromAPI({ append = false, reset = false, userId = undefined } = {}) {
         if (this.loadingMore || this.allLoaded) return;
         this.loadingMore = true;
+        const galleryContainer = document.getElementById('galleryContainer');
+        if (galleryContainer) galleryContainer.classList.add('fading');
         document.getElementById('loading').style.display = 'block';
         document.getElementById('gallerySkeletons').style.display = 'flex';
         this.showSkeletons();
@@ -62,6 +64,9 @@ class GalleryManager {
             if (this.allLoaded) {
                 document.getElementById('endMessage').style.display = 'block';
             }
+            if (galleryContainer) {
+                setTimeout(() => galleryContainer.classList.remove('fading'), 250);
+            }
         }
     }
 
@@ -81,7 +86,15 @@ class GalleryManager {
 
     renderGallery() {
         const galleryContainer = document.getElementById('galleryContainer');
+        const emptyState = document.getElementById('galleryEmpty');
         galleryContainer.innerHTML = '';
+
+        if (this.galleryItems.length === 0) {
+            if (emptyState) emptyState.style.display = 'flex';
+            return;
+        } else {
+            if (emptyState) emptyState.style.display = 'none';
+        }
 
         this.galleryItems.forEach(item => {
             const galleryItem = document.createElement('article');
@@ -89,6 +102,9 @@ class GalleryManager {
             galleryItem.dataset.category = item.category;
             galleryItem.dataset.tags = item.tags.join(',');
             galleryItem.dataset.id = item.id;
+            galleryItem.tabIndex = 0; // Make card focusable
+            galleryItem.setAttribute('role', 'button');
+            galleryItem.setAttribute('aria-label', item.title || 'View media');
 
             const isVideo = item.type === 'video';
             
@@ -130,11 +146,16 @@ class GalleryManager {
                 </div>
             `;
 
-            // Make the card clickable
+            // Make the card clickable and keyboard accessible
             galleryItem.addEventListener('click', (e) => {
-                // Prevent click if like/comment button is clicked
                 if (e.target.closest('.interaction-btn')) return;
                 window.galleryApp.openMediaDetailModal(item);
+            });
+            galleryItem.addEventListener('keydown', (e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.interaction-btn')) {
+                    e.preventDefault();
+                    window.galleryApp.openMediaDetailModal(item);
+                }
             });
 
             galleryContainer.appendChild(galleryItem);
@@ -293,13 +314,43 @@ class GalleryApp {
         document.getElementById('closeNotificationModal').addEventListener('click', () => {
             this.closeModal(document.getElementById('notificationModal'));
         });
+
+        // Make category filters keyboard accessible
+        document.querySelectorAll('.category-filter').forEach(btn => {
+            btn.tabIndex = 0;
+            btn.setAttribute('role', 'button');
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    btn.click();
+                }
+            });
+        });
+
+        // Make upload button keyboard accessible
+        const uploadBtn = document.getElementById('uploadBtn');
+        if (uploadBtn) {
+            uploadBtn.tabIndex = 0;
+            uploadBtn.setAttribute('role', 'button');
+            uploadBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    uploadBtn.click();
+                }
+            });
+        }
     }
 
     performSearch() {
         const searchInput = document.querySelector('.search-bar input');
         const searchTerm = searchInput.value.toLowerCase().trim();
         const galleryItems = document.querySelectorAll('.gallery-item');
-        
+        const galleryContainer = document.getElementById('galleryContainer');
+        if (galleryContainer) {
+            galleryContainer.classList.add('fading');
+            setTimeout(() => galleryContainer.classList.remove('fading'), 250);
+        }
+
         galleryItems.forEach(item => {
             const title = item.querySelector('.caption h3').textContent.toLowerCase();
             const description = item.querySelector('.caption p').textContent.toLowerCase();
@@ -419,9 +470,10 @@ class GalleryApp {
         }
 
         // Check authentication
-        const userResult = await this.supa.auth.getUser();
-        const user = userResult.data?.user;
-        if (!user) {
+        const userResult = await this.supa.auth.getSession();
+        const session = userResult.data?.session;
+        const accessToken = session?.access_token;
+        if (!session) {
             this.showNotification('You must be signed in to upload.', 'error');
             return;
         }
@@ -459,13 +511,16 @@ class GalleryApp {
                 description: document.getElementById('mediaDescription').value,
                 category: document.getElementById('mediaCategory').value,
                 tags: document.getElementById('mediaTags').value.split(',').map(tag => tag.trim()),
-                user_id: user.id
+                user_id: session.user.id
             };
 
             // Save metadata to DB via Netlify Function
             const response = await fetch('/.netlify/functions/upload-gallery', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
                 body: JSON.stringify(newItem)
             });
             clearInterval(interval);
@@ -485,17 +540,30 @@ class GalleryApp {
         }
     }
 
-    showNotification(message, type) {
-        const notification = document.getElementById('notification');
-        const notificationMessage = document.getElementById('notificationMessage');
-        
-        notification.className = `notification ${type}`;
-        notificationMessage.textContent = message;
-        notification.classList.add('show');
-        
+    showToast(message, type = "") {
+        const toast = document.getElementById("toast");
+        if (!toast) return;
+        toast.className = "toast" + (type ? " " + type : "");
+        toast.innerHTML =
+            (type === "success"
+                ? '<i class="fas fa-check-circle"></i>'
+                : type === "error"
+                ? '<i class="fas fa-exclamation-circle"></i>'
+                : "") +
+            `<span>${message}</span>`;
         setTimeout(() => {
-            notification.classList.remove('show');
-        }, 3000);
+            toast.classList.add("show");
+        }, 10);
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => {
+            toast.classList.remove("show");
+        }, 3200);
+    }
+
+    showNotification(message, type) {
+        // For backward compatibility, also show the old notification if needed
+        // But now use toast for all user feedback
+        this.showToast(message, type);
     }
 
     async handleLike(btn) {
@@ -817,11 +885,27 @@ class GalleryApp {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
         this.trapFocus(modal);
+
+        // Add backdrop click-to-close
+        if (!modal._backdropHandler) {
+            modal._backdropHandler = (e) => {
+                if (e.target === modal) {
+                    this.closeModal(modal);
+                }
+            };
+            modal.addEventListener('mousedown', modal._backdropHandler);
+        }
     }
+
     closeModal(modal) {
         modal.classList.remove('active');
         document.body.style.overflow = '';
         modal.dispatchEvent(new Event('modalClose'));
+        // Remove backdrop click handler
+        if (modal._backdropHandler) {
+            modal.removeEventListener('mousedown', modal._backdropHandler);
+            delete modal._backdropHandler;
+        }
     }
 
     // Debounce utility
@@ -910,6 +994,34 @@ document.addEventListener('DOMContentLoaded', function() {
   const closeProfileModal = document.getElementById('closeProfileModal');
   const signOutBtn = document.getElementById('signOutBtn');
   const profileEmail = document.getElementById('profileEmail');
+
+  // --- Add fetchProfile function ---
+  async function fetchProfile() {
+    // Get user info
+    const userResult = await window.galleryApp.supa.auth.getUser();
+    const user = userResult.data?.user;
+    if (!user) return;
+    // Set email
+    profileEmail.textContent = user.email || '-';
+    // Fetch profile from Supabase
+    const { data: profile, error } = await window.galleryApp.supa
+      .from('profiles')
+      .select('username, bio, avatar_url')
+      .eq('id', user.id)
+      .single();
+    if (!error && profile) {
+      if (window.profileDisplayName) window.profileDisplayName.value = profile.username || '';
+      if (window.profileBio) window.profileBio.value = profile.bio || '';
+      if (window.profileAvatar) window.profileAvatar.src = profile.avatar_url || '/assets/default-avatar.png';
+    } else {
+      if (window.profileDisplayName) window.profileDisplayName.value = '';
+      if (window.profileBio) window.profileBio.value = '';
+      if (window.profileAvatar) window.profileAvatar.src = '/assets/default-avatar.png';
+    }
+    // Show modal
+    profileModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
 
   function openProfileModal() {
     supa.auth.getUser().then(({ data }) => {
@@ -1083,35 +1195,58 @@ document.addEventListener('DOMContentLoaded', function() {
   const profileDisplayName = document.getElementById('profileDisplayName');
   const profileBio = document.getElementById('profileBio');
 
-  async function fetchProfile() {
-    const userResult = await window.galleryApp.supa.auth.getUser();
-    const user = userResult.data?.user;
-    if (!user) return;
-    const { data, error } = await window.galleryApp.supa
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    if (data) {
-      profileDisplayName.value = data.username || '';
-      profileBio.value = data.bio || '';
-      profileAvatar.src = data.avatar_url || 'assets/default-avatar.png';
-    } else {
-      profileDisplayName.value = '';
-      profileBio.value = '';
-      profileAvatar.src = 'assets/default-avatar.png';
-    }
-  }
+  // Avatar cropper modal elements
+  const avatarCropperModal = document.getElementById('avatarCropperModal');
+  const avatarCropperImage = document.getElementById('avatarCropperImage');
+  const avatarCropperPreview = document.getElementById('avatarCropperPreview');
+  const avatarCropperCancel = document.getElementById('avatarCropperCancel');
+  const avatarCropperSave = document.getElementById('avatarCropperSave');
+  let cropper = null;
+  let croppedAvatarBlob = null;
 
-  // Show preview when user selects a new avatar
+  // Show cropper modal when user selects a new avatar
   profileAvatarInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      profileAvatar.src = ev.target.result;
+      avatarCropperImage.src = ev.target.result;
+      avatarCropperModal.classList.add('active');
+      if (cropper) cropper.destroy();
+      cropper = new Cropper(avatarCropperImage, {
+        aspectRatio: 1,
+        viewMode: 1,
+        dragMode: 'move',
+        preview: avatarCropperPreview,
+        background: false,
+        autoCropArea: 1,
+        minContainerWidth: 320,
+        minContainerHeight: 320,
+        ready() {
+          cropper.setCropBoxData({ width: 200, height: 200 });
+        }
+      });
     };
     reader.readAsDataURL(file);
+  });
+
+  avatarCropperCancel.addEventListener('click', () => {
+    avatarCropperModal.classList.remove('active');
+    if (cropper) cropper.destroy();
+    cropper = null;
+    profileAvatarInput.value = '';
+  });
+
+  avatarCropperSave.addEventListener('click', () => {
+    if (!cropper) return;
+    cropper.getCroppedCanvas({ width: 256, height: 256, imageSmoothingQuality: 'high' }).toBlob(blob => {
+      croppedAvatarBlob = blob;
+      // Show preview in profile modal
+      profileAvatar.src = URL.createObjectURL(blob);
+      avatarCropperModal.classList.remove('active');
+      cropper.destroy();
+      cropper = null;
+    }, 'image/png', 0.96);
   });
 
   // Save profile changes
@@ -1121,16 +1256,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const user = userResult.data?.user;
     if (!user) return;
     let avatar_url = profileAvatar.src;
-    // If a new avatar is selected, upload to Supabase Storage
-    if (profileAvatarInput.files && profileAvatarInput.files[0]) {
-      const file = profileAvatarInput.files[0];
-      const ext = file.name.split('.').pop();
+    // If a new avatar is selected and cropped, upload to Supabase Storage
+    if (croppedAvatarBlob) {
+      const ext = 'png';
       const filePath = `avatars/${user.id}.${ext}`;
-      const { data: uploadData, error: uploadError } = await window.galleryApp.supa.storage.from('media').upload(filePath, file, { upsert: true });
+      const { data: uploadData, error: uploadError } = await window.galleryApp.supa.storage.from('media').upload(filePath, croppedAvatarBlob, { upsert: true, contentType: 'image/png' });
       if (!uploadError) {
         const { data: urlData } = window.galleryApp.supa.storage.from('media').getPublicUrl(filePath);
         avatar_url = urlData.publicUrl;
       }
+      croppedAvatarBlob = null;
     }
     // Upsert profile info
     const { error } = await window.galleryApp.supa
@@ -1151,6 +1286,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Fetch profile info when opening modal
   const openProfileModalBtn = document.querySelector('.user-actions button[aria-label="User profile"]');
   if (openProfileModalBtn) {
+    openProfileModalBtn.removeEventListener('click', openProfileModal); // Remove old handler if any
     openProfileModalBtn.addEventListener('click', fetchProfile);
   }
 

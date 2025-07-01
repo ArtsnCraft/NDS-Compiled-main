@@ -9,6 +9,7 @@
     <link rel="icon" href="assets/favicon.ico" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
 </head>
 <body>
     <header>
@@ -58,6 +59,16 @@
         <div class="loading-more" id="loading">
             <div class="loading-spinner"></div>
             <p>Loading more pins...</p>
+        </div>
+
+        <div class="gallery-empty" id="galleryEmpty" style="display:none;">
+            <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="120" height="120" rx="24" fill="#f5f6fa"/>
+                <path d="M30 90L50 65L70 90H90V40C90 36.6863 87.3137 34 84 34H36C32.6863 34 30 36.6863 30 40V90Z" fill="#dbeafe"/>
+                <circle cx="44" cy="52" r="6" fill="#60a5fa"/>
+                <rect x="30" y="90" width="60" height="6" rx="3" fill="#e0e7ef"/>
+            </svg>
+            <p>No media found.<br><span style="color:var(--primary);font-weight:500;">Upload your first image or video!</span></p>
         </div>
     </main>
 
@@ -254,5 +265,21 @@
         </div>
       </div>
     </div>
+
+    <div id="toast" class="toast"></div>
+
+    <div id="avatarCropperModal">
+      <div class="cropper-container">
+        <h2 style="color:#fff; margin-bottom:1rem;">Crop your avatar</h2>
+        <img id="avatarCropperImage" src="" alt="Crop avatar" style="max-width:320px; max-height:320px; border-radius:12px; background:#fff;" />
+        <div class="cropper-preview" id="avatarCropperPreview"></div>
+        <div class="cropper-actions">
+          <button id="avatarCropperCancel" class="secondary-btn">Cancel</button>
+          <button id="avatarCropperSave" class="submit-btn">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 </body>
 </html>
