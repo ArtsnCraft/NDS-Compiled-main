@@ -46,6 +46,7 @@
     </section>
 
     <main>
+        <!-- Remove gallery-controls div -->
         <div class="gallery" id="galleryContainer">
             <!-- Gallery items will be dynamically loaded here -->
         </div>
@@ -71,6 +72,13 @@
             <p>No media found.<br><span style="color:var(--primary);font-weight:500;">Upload your first image or video!</span></p>
         </div>
     </main>
+
+    <!-- Floating controls for selection actions -->
+    <div id="floatingSelectionControls" style="display:none;position:fixed;bottom:2rem;right:2rem;z-index:1000;gap:1rem;flex-direction:row;align-items:center;">
+        <button id="selectAllBtn" class="secondary-btn" type="button">Select All</button>
+        <button id="editSelectedBtn" class="submit-btn" type="button">Edit Selected</button>
+        <span id="selectedCount" style="margin-left: 1rem; color: var(--text-light);"></span>
+    </div>
 
     <button class="upload-btn" id="uploadBtn" aria-label="Upload media">
         <i class="fas fa-plus"></i>
@@ -281,5 +289,50 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <!-- Edit Modal for Gallery Items -->
+    <div class="modal" id="editGalleryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit Gallery Item(s)</h2>
+                <button class="close-btn" id="closeEditGalleryModal" aria-label="Close modal">&times;</button>
+            </div>
+            <form id="editGalleryForm">
+                <div class="form-group">
+                    <label for="editCategory" class="form-label">Category</label>
+                    <select id="editCategory" class="form-select" required>
+                        <option value="">Select a category</option>
+                        <option value="birds">Birds</option>
+                        <option value="pets">Pets</option>
+                        <option value="landscape">Landscape</option>
+                        <option value="night">Night</option>
+                        <option value="video">Video</option>
+                    </select>
+                </div>
+                <!-- Optionally add more fields here (title, description, tags) -->
+                <div class="form-actions" style="display:flex;gap:1rem;align-items:center;">
+                    <button type="button" class="secondary-btn" id="downloadSelectedBtn">Download</button>
+                    <button type="button" class="secondary-btn" id="deleteSelectedBtn" style="color:#ff4757;">Delete</button>
+                    <button type="submit" class="submit-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal" id="deleteConfirmModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Confirm Delete</h2>
+                <button class="close-btn" id="closeDeleteConfirmModal" aria-label="Close modal">&times;</button>
+            </div>
+            <div style="padding:1rem 0;">
+                <p>Are you sure you want to delete the selected item(s)? This action cannot be undone.</p>
+            </div>
+            <div class="form-actions" style="display:flex;gap:1rem;align-items:center;">
+                <button type="button" class="secondary-btn" id="cancelDeleteBtn">Cancel</button>
+                <button type="button" class="submit-btn" id="confirmDeleteBtn" style="background:#ff4757;">Delete</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

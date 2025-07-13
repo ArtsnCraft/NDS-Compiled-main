@@ -1838,3 +1838,40 @@ input[type="checkbox"]:active, input[type="radio"]:active {
     float: none !important;
     margin-left: 0;
 }
+
+/* Selection checkbox for gallery items */
+.gallery-item .select-checkbox {
+    display: none;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    transform: scale(1.3);
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+.gallery-item:hover .select-checkbox,
+.gallery-item .select-checkbox:checked {
+    display: block;
+}
+
+/* Floating selection controls */
+#floatingSelectionControls {
+    display: none;
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 1000;
+    gap: 1rem;
+    flex-direction: row;
+    align-items: center;
+    background: var(--card-bg);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    border-radius: 16px;
+    padding: 1rem 1.5rem;
+    transition: box-shadow 0.2s;
+}
+#floatingSelectionControls button {
+    margin: 0;
+}

@@ -9,6 +9,7 @@ class GalleryManager {
         this.loadingMore = false;
         this.allLoaded = false;
         this.userId = null;
+        this.selectedItems = new Set();
         this.loadFromAPI();
         this.initCurrentYear();
     }
@@ -107,9 +108,14 @@ class GalleryManager {
             galleryItem.setAttribute('aria-label', item.title || 'View media');
 
             const isVideo = item.type === 'video';
-            
+            // Checkbox only on hover or if selected
+            let selectionCheckbox = `<input type="checkbox" class="select-checkbox" data-item-id="${item.id}" style="position:absolute;top:10px;left:10px;z-index:10;transform:scale(1.3);display:none;">`;
+            if (this.selectedItems.has(item.id)) {
+                selectionCheckbox = `<input type="checkbox" class="select-checkbox" data-item-id="${item.id}" checked style="position:absolute;top:10px;left:10px;z-index:10;transform:scale(1.3);display:block;">`;
+            }
             galleryItem.innerHTML = `
-                <div class="image-wrapper">
+                <div class="image-wrapper" style="position:relative;">
+                    ${selectionCheckbox}
                     <span class="category-tag">${item.category}</span>
                     <div class="hover-overlay"></div>
                     ${isVideo ? `
@@ -146,8 +152,24 @@ class GalleryManager {
                 </div>
             `;
 
+            // Checkbox hover logic
+            galleryItem.addEventListener('mouseenter', () => {
+                const cb = galleryItem.querySelector('.select-checkbox');
+                if (cb && !this.selectedItems.has(item.id)) cb.style.display = 'block';
+            });
+            galleryItem.addEventListener('mouseleave', () => {
+                const cb = galleryItem.querySelector('.select-checkbox');
+                if (cb && !this.selectedItems.has(item.id)) cb.style.display = 'none';
+            });
+
             // Make the card clickable and keyboard accessible
             galleryItem.addEventListener('click', (e) => {
+                const cb = e.target.closest('.select-checkbox');
+                if (cb) {
+                    this.toggleSelectItem(item.id);
+                    e.stopPropagation();
+                    return;
+                }
                 if (e.target.closest('.interaction-btn')) return;
                 window.galleryApp.openMediaDetailModal(item);
             });
@@ -163,6 +185,8 @@ class GalleryManager {
 
         this.setupVideoHover();
         this.setupInteractionButtons();
+        this.setupSelectionCheckboxes();
+        window.galleryApp.updateFloatingControls();
     }
 
     setupVideoHover() {
@@ -202,6 +226,40 @@ class GalleryManager {
                 window.galleryApp.handleComment(btn);
             });
         });
+    }
+
+    setupSelectionCheckboxes() {
+        const checkboxes = document.querySelectorAll('.select-checkbox');
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const id = cb.getAttribute('data-item-id');
+                this.toggleSelectItem(id);
+                e.stopPropagation();
+            });
+        });
+    }
+
+    toggleSelectItem(id) {
+        if (this.selectedItems.has(id)) {
+            this.selectedItems.delete(id);
+        } else {
+            this.selectedItems.add(id);
+        }
+        this.renderGallery();
+    }
+
+    selectAll() {
+        this.galleryItems.forEach(item => this.selectedItems.add(item.id));
+        this.renderGallery();
+    }
+
+    clearSelection() {
+        this.selectedItems.clear();
+        this.renderGallery();
+    }
+
+    getSelectedItems() {
+        return Array.from(this.selectedItems);
     }
 
     handleScroll() {
@@ -339,6 +397,43 @@ class GalleryApp {
                 }
             });
         }
+
+        // Floating selection controls
+        const floatingControls = document.getElementById('floatingSelectionControls');
+        const editBtn = document.getElementById('editSelectedBtn');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        editBtn.addEventListener('click', () => {
+            this.openEditGalleryModal();
+        });
+        selectAllBtn.addEventListener('click', () => {
+            const allSelected = this.galleryManager.selectedItems.size === this.galleryManager.galleryItems.length;
+            if (allSelected) {
+                this.galleryManager.clearSelection();
+            } else {
+                this.galleryManager.selectAll();
+            }
+        });
+        document.getElementById('closeEditGalleryModal').addEventListener('click', () => {
+            this.closeEditGalleryModal();
+        });
+        document.getElementById('editGalleryForm').addEventListener('submit', (e) => {
+            this.handleEditGallerySubmit(e);
+        });
+        document.getElementById('downloadSelectedBtn').addEventListener('click', () => {
+            this.handleDownloadSelected();
+        });
+        document.getElementById('deleteSelectedBtn').addEventListener('click', () => {
+            this.openDeleteConfirmModal();
+        });
+        document.getElementById('closeDeleteConfirmModal').addEventListener('click', () => {
+            this.closeDeleteConfirmModal();
+        });
+        document.getElementById('cancelDeleteBtn').addEventListener('click', () => {
+            this.closeDeleteConfirmModal();
+        });
+        document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
+            this.handleDeleteSelected();
+        });
     }
 
     performSearch() {
@@ -916,6 +1011,172 @@ class GalleryApp {
             timeout = setTimeout(() => fn.apply(this, args), delay);
         };
     }
+
+    updateSelectedCount() {
+        const selectedCount = document.getElementById('selectedCount');
+        const count = this.galleryManager.selectedItems.size;
+        selectedCount.textContent = count > 0 ? `${count} selected` : '';
+    }
+
+    openEditGalleryModal() {
+        // Optionally prefill category if all selected items have the same category
+        const selectedIds = this.galleryManager.getSelectedItems();
+        if (selectedIds.length === 0) return;
+        const items = this.galleryManager.galleryItems.filter(i => selectedIds.includes(i.id));
+        const allSameCategory = items.every(i => i.category === items[0].category);
+        document.getElementById('editCategory').value = allSameCategory ? items[0].category : '';
+        this.openModal(document.getElementById('editGalleryModal'));
+    }
+
+    closeEditGalleryModal() {
+        this.closeModal(document.getElementById('editGalleryModal'));
+    }
+
+    async handleEditGallerySubmit(e) {
+        e.preventDefault();
+        const category = document.getElementById('editCategory').value;
+        const selectedIds = this.galleryManager.getSelectedItems();
+        if (!category || selectedIds.length === 0) return;
+        // Call backend to update
+        const { data: { session } } = await this.supa.auth.getSession();
+        if (!session) {
+            this.showNotification('Please sign in to edit items', 'error');
+            return;
+        }
+        const updates = selectedIds.map(id => ({ id, category }));
+        const response = await fetch('/.netlify/functions/update-gallery-item', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify(updates)
+        });
+        if (response.ok) {
+            this.showNotification('Category updated!', 'success');
+            this.galleryManager.setSelectionMode(false);
+            document.getElementById('toggleSelectModeBtn').textContent = 'Select';
+            document.getElementById('editSelectedBtn').style.display = 'none';
+            this.closeEditGalleryModal();
+            // Reload gallery
+            this.galleryManager.loadFromAPI({ reset: true });
+        } else {
+            this.showNotification('Failed to update category', 'error');
+        }
+    }
+
+    updateFloatingControls() {
+        const floatingControls = document.getElementById('floatingSelectionControls');
+        const selectedCount = document.getElementById('selectedCount');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const count = this.galleryManager.selectedItems.size;
+        const total = this.galleryManager.galleryItems.length;
+        if (count > 0) {
+            floatingControls.style.display = 'flex';
+            selectedCount.textContent = `${count} selected`;
+            if (count === total && total > 0) {
+                selectAllBtn.textContent = 'Deselect All';
+            } else {
+                selectAllBtn.textContent = 'Select All';
+            }
+        } else {
+            floatingControls.style.display = 'none';
+            selectedCount.textContent = '';
+        }
+    }
+
+    openDeleteConfirmModal() {
+        this.openModal(document.getElementById('deleteConfirmModal'));
+    }
+    closeDeleteConfirmModal() {
+        this.closeModal(document.getElementById('deleteConfirmModal'));
+    }
+
+    async handleDeleteSelected() {
+        const selectedIds = this.galleryManager.getSelectedItems();
+        if (!selectedIds.length) return;
+        const { data: { session } } = await this.supa.auth.getSession();
+        if (!session) {
+            this.showNotification('Please sign in to delete items', 'error');
+            return;
+        }
+        const response = await fetch('/.netlify/functions/delete-gallery-item', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify(selectedIds)
+        });
+        if (response.ok) {
+            this.showNotification('Deleted successfully!', 'success');
+            this.closeDeleteConfirmModal();
+            this.closeEditGalleryModal();
+            this.galleryManager.clearSelection();
+            this.galleryManager.loadFromAPI({ reset: true });
+        } else {
+            this.showNotification('Failed to delete', 'error');
+        }
+    }
+
+    async handleDownloadSelected() {
+        const selectedIds = this.galleryManager.getSelectedItems();
+        if (!selectedIds.length) return;
+        const items = this.galleryManager.galleryItems.filter(i => selectedIds.includes(i.id));
+        if (items.length === 1) {
+            // Single file: direct download
+            const item = items[0];
+            const url = item.src;
+            const filename = item.title ? item.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'download';
+            this.downloadFile(url, filename + this.getFileExtension(url));
+        } else {
+            // Multiple: zip
+            if (!window.JSZip || !window.saveAs) {
+                this.showNotification('Download libraries not loaded. Please try again.', 'error');
+                return;
+            }
+            const zip = new window.JSZip();
+            let count = 0;
+            const self = this;
+            items.forEach(item => {
+                const url = item.src;
+                const filename = (item.title ? item.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'file') + self.getFileExtension(url);
+                fetch(url)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        zip.file(filename, blob);
+                        count++;
+                        if (count === items.length) {
+                            zip.generateAsync({ type: 'blob' }).then(content => {
+                                window.saveAs(content, 'gallery-download.zip');
+                            });
+                        }
+                    })
+                    .catch(() => {
+                        count++;
+                        if (count === items.length) {
+                            zip.generateAsync({ type: 'blob' }).then(content => {
+                                window.saveAs(content, 'gallery-download.zip');
+                            });
+                        }
+                    });
+            });
+        }
+    }
+
+    downloadFile(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    getFileExtension(url) {
+        const match = url.match(/\.[0-9a-z]+(?=[?#])|\.(?:mp4|jpg|jpeg|png|gif|webp|bmp|svg|mov|avi|mkv|webm|mp3|wav|ogg|flac|aac|m4a|zip|pdf|txt|docx|xlsx|pptx|csv|json|xml|html|js|css)$/i);
+        return match ? match[0] : '';
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1317,5 +1578,17 @@ document.addEventListener('DOMContentLoaded', function() {
       window.galleryApp.galleryManager.allLoaded = false;
       window.galleryApp.galleryManager.loadFromAPI({ reset: true, userId: null });
     });
+  }
+
+  // Add JSZip and FileSaver via CDN for browser use
+  if (!window.JSZip) {
+      const jszipScript = document.createElement('script');
+      jszipScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      document.head.appendChild(jszipScript);
+  }
+  if (!window.saveAs) {
+      const fileSaverScript = document.createElement('script');
+      fileSaverScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js';
+      document.head.appendChild(fileSaverScript);
   }
 });
