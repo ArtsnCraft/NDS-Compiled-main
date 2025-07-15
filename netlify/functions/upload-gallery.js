@@ -19,6 +19,11 @@ exports.handler = async function(event) {
 
   const body = JSON.parse(event.body);
 
+  // Coerce shared_with to null unless restricted and non-empty array
+  if (body.visibility !== 'restricted' || !Array.isArray(body.shared_with) || body.shared_with.length === 0) {
+    body.shared_with = null;
+  }
+
   const { data, error } = await supabase
     .from('gallery_items')
     .insert([body]);

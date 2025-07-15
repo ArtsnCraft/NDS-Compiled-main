@@ -38,6 +38,7 @@
     <section class="category-filters">
         <button class="category-filter active" data-category="all" id="allMediaBtn">All</button>
         <button class="category-filter" data-category="my-gallery" id="myGalleryBtn">My Gallery</button>
+        <button class="category-filter" data-category="shared-with-me" id="sharedWithMeBtn">Shared with Me</button>
         <button class="category-filter" data-category="birds">Birds</button>
         <button class="category-filter" data-category="pets">Pets</button>
         <button class="category-filter" data-category="landscape">Landscape</button>
@@ -132,6 +133,19 @@
                 <div class="form-group">
                     <label for="mediaTags" class="form-label">Tags (comma separated)</label>
                     <input type="text" id="mediaTags" class="form-input" placeholder="e.g., sunset, beach, summer">
+                </div>
+                
+                <div class="form-group">
+                    <label for="mediaVisibility" class="form-label">Visibility</label>
+                    <select id="mediaVisibility" class="form-select">
+                        <option value="public">Public</option>
+                        <option value="private">Private (only me)</option>
+                        <option value="restricted">Restricted (select users)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="mediaSharedWithGroup" style="display:none;">
+                    <label for="mediaSharedWith" class="form-label">Share with (if restricted)</label>
+                    <select id="mediaSharedWith" class="form-select" multiple></select>
                 </div>
                 
                 <div class="form-actions">
@@ -319,6 +333,18 @@
                     <input type="text" id="editCaption" class="form-input" placeholder="Edit caption">
                 </div>
                 <!-- Optionally add more fields here (title, description, tags) -->
+                <div class="form-group">
+                    <label for="editVisibility" class="form-label">Visibility</label>
+                    <select id="editVisibility" class="form-select">
+                        <option value="public">Public</option>
+                        <option value="private">Private (only me)</option>
+                        <option value="restricted">Restricted (select users)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="editSharedWithGroup" style="display:none;">
+                    <label for="editSharedWith" class="form-label">Share with (if restricted)</label>
+                    <select id="editSharedWith" class="form-select" multiple></select>
+                </div>
                 <div class="form-actions" style="display:flex;gap:1rem;align-items:center;">
                     <button type="button" class="secondary-btn" id="downloadSelectedBtn">Download</button>
                     <button type="button" class="secondary-btn" id="deleteSelectedBtn" style="color:#ff4757;">Delete</button>
@@ -375,6 +401,18 @@
           <div class="form-group">
             <label for="editFileTags" class="form-label">Tags (comma separated)</label>
             <input type="text" id="editFileTags" class="form-input">
+          </div>
+          <div class="form-group">
+            <label for="editFileVisibility" class="form-label">Visibility</label>
+            <select id="editFileVisibility" class="form-select">
+              <option value="public">Public</option>
+              <option value="private">Private (only me)</option>
+              <option value="restricted">Restricted (select users)</option>
+            </select>
+          </div>
+          <div class="form-group" id="editFileSharedWithGroup" style="display:none;">
+            <label for="editFileSharedWith" class="form-label">Share with (if restricted)</label>
+            <select id="editFileSharedWith" class="form-select" multiple></select>
           </div>
           <div class="form-actions">
             <button type="button" class="secondary-btn" id="copyMetaToAllBtn">Copy to All</button>

@@ -18,56 +18,34 @@ class GalleryManager {
         document.getElementById('currentYear').textContent = new Date().getFullYear();
     }
 
-    async loadFromAPI({ append = false, reset = false, userId = undefined } = {}) {
+    async loadFromAPI({ append = false, reset = false, userId = undefined, sharedWithMe = false } = {}) {
         if (this.loadingMore || this.allLoaded) return;
-        this.loadingMore = true;
-        const galleryContainer = document.getElementById('galleryContainer');
-        if (galleryContainer) galleryContainer.classList.add('fading');
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('gallerySkeletons').style.display = 'flex';
-        this.showSkeletons();
-        document.getElementById('endMessage').style.display = 'none';
-
-        if (reset) {
-            this.page = 1;
-            this.allLoaded = false;
-            this.galleryItems = [];
-            this.userId = userId !== undefined ? userId : null;
+        this.loadingMore = false;
+        let url = `/.netlify/functions/get-gallery?page=${this.page}&pageSize=${this.pageSize}`;
+        if (this.userId) url += `&user_id=${this.userId}`;
+        if (sharedWithMe) url += `&shared_with_me=true`;
+        let accessToken = null;
+        if (window.galleryApp && window.galleryApp.supa) {
+            const userResult = await window.galleryApp.supa.auth.getSession();
+            const session = userResult.data?.session;
+            accessToken = session?.access_token;
         }
-        if (userId !== undefined) this.userId = userId;
-
-        try {
-            let url = `/.netlify/functions/get-gallery?page=${this.page}&pageSize=${this.pageSize}`;
-            if (this.userId) url += `&user_id=${this.userId}`;
-            const response = await fetch(url);
-            const items = await response.json();
-
-            if (Array.isArray(items) && items.length > 0) {
-                if (append) {
-                    this.galleryItems = this.galleryItems.concat(items);
-                } else {
-                    this.galleryItems = items;
-                }
-                this.renderGallery();
-                if (items.length < this.pageSize) {
-                    this.allLoaded = true;
-                }
+        const response = await fetch(url, {
+            headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}
+        });
+        const items = await response.json();
+        if (Array.isArray(items) && items.length > 0) {
+            if (append) {
+                this.galleryItems = this.galleryItems.concat(items);
             } else {
+                this.galleryItems = items;
+            }
+            this.renderGallery();
+            if (items.length < this.pageSize) {
                 this.allLoaded = true;
             }
-        } catch (error) {
-            console.error('Failed to load gallery items:', error);
-        } finally {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('gallerySkeletons').style.display = 'none';
-            this.loadingMore = false;
-            this.hideSkeletons();
-            if (this.allLoaded) {
-                document.getElementById('endMessage').style.display = 'block';
-            }
-            if (galleryContainer) {
-                setTimeout(() => galleryContainer.classList.remove('fading'), 250);
-            }
+        } else {
+            this.allLoaded = true;
         }
     }
 
@@ -817,7 +795,9 @@ class GalleryApp {
                     description: item.description || document.getElementById('mediaDescription').value,
                     category: item.category || document.getElementById('mediaCategory').value,
                     tags: item.tags && item.tags.length ? item.tags : document.getElementById('mediaTags').value.split(',').map(t => t.trim()).filter(Boolean),
-                    user_id: session.user.id
+                    user_id: session.user.id,
+                    visibility: document.getElementById('mediaVisibility').value,
+                    shared_with: getSelectedUserIds('mediaSharedWith')
                 };
                 const response = await fetch('/.netlify/functions/upload-gallery', {
                     method: 'POST',
@@ -894,7 +874,9 @@ class GalleryApp {
                 description: item.description || document.getElementById('mediaDescription').value,
                 category: item.category || document.getElementById('mediaCategory').value,
                 tags: item.tags && item.tags.length ? item.tags : document.getElementById('mediaTags').value.split(',').map(t => t.trim()).filter(Boolean),
-                user_id: session.user.id
+                user_id: session.user.id,
+                visibility: document.getElementById('mediaVisibility').value,
+                shared_with: getSelectedUserIds('mediaSharedWith')
             };
             const response = await fetch('/.netlify/functions/upload-gallery', {
                 method: 'POST',
@@ -1363,8 +1345,9 @@ class GalleryApp {
         });
         if (response.ok) {
             this.showNotification('Gallery items updated!', 'success');
-            this.galleryManager.setSelectionMode(false);
-            document.getElementById('toggleSelectModeBtn').textContent = 'Select';
+            if (this.galleryManager.clearSelection) this.galleryManager.clearSelection();
+            const toggleBtn = document.getElementById('toggleSelectModeBtn');
+            if (toggleBtn) toggleBtn.textContent = 'Select';
             document.getElementById('editSelectedBtn').style.display = 'none';
             this.closeEditGalleryModal();
             // Reload gallery
@@ -1487,6 +1470,98 @@ class GalleryApp {
         return match ? match[0] : '';
     }
 }
+
+// --- User Fetching for Sharing ---
+async function fetchUsersForSharing(currentUserId, supa) {
+  const { data: users, error } = await supa
+    .from('profiles')
+    .select('id, username')
+    .neq('id', currentUserId);
+  if (error) {
+    console.error('Error fetching users:', error);
+    return [];
+  }
+  return users;
+}
+
+// --- Populate Multi-Selects ---
+async function populateUserMultiSelect(selectId, currentUserId, supa) {
+  const users = await fetchUsersForSharing(currentUserId, supa);
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  select.innerHTML = '';
+  users.forEach(user => {
+    const option = document.createElement('option');
+    // Show username if available, else user ID
+    option.value = user.id;
+    option.textContent = user.username || user.id;
+    select.appendChild(option);
+  });
+}
+
+// --- Visibility Selectors Show/Hide Logic ---
+function setupVisibilityHandlers() {
+  // Upload Modal
+  const vis = document.getElementById('mediaVisibility');
+  const sharedWithGroup = document.getElementById('mediaSharedWithGroup');
+  if (vis && sharedWithGroup) {
+    vis.addEventListener('change', function() {
+      sharedWithGroup.style.display = this.value === 'restricted' ? 'block' : 'none';
+    });
+  }
+  // Edit Modal
+  const editVis = document.getElementById('editVisibility');
+  const editSharedWithGroup = document.getElementById('editSharedWithGroup');
+  if (editVis && editSharedWithGroup) {
+    editVis.addEventListener('change', function() {
+      editSharedWithGroup.style.display = this.value === 'restricted' ? 'block' : 'none';
+    });
+  }
+  // Per-file Meta Modal
+  const fileVis = document.getElementById('editFileVisibility');
+  const fileSharedWithGroup = document.getElementById('editFileSharedWithGroup');
+  if (fileVis && fileSharedWithGroup) {
+    fileVis.addEventListener('change', function() {
+      fileSharedWithGroup.style.display = this.value === 'restricted' ? 'block' : 'none';
+    });
+  }
+}
+
+// --- Integrate with GalleryApp ---
+const originalOpenUploadModal = GalleryApp.prototype.openUploadModal;
+GalleryApp.prototype.openUploadModal = async function() {
+  const userResult = await this.supa.auth.getSession();
+  const session = userResult.data?.session;
+  const userId = session?.user?.id;
+  await populateUserMultiSelect('mediaSharedWith', userId, this.supa);
+  setupVisibilityHandlers();
+  originalOpenUploadModal.call(this);
+};
+
+const originalOpenEditGalleryModal = GalleryApp.prototype.openEditGalleryModal;
+GalleryApp.prototype.openEditGalleryModal = async function() {
+  const userResult = await this.supa.auth.getSession();
+  const session = userResult.data?.session;
+  const userId = session?.user?.id;
+  await populateUserMultiSelect('editSharedWith', userId, this.supa);
+  setupVisibilityHandlers();
+  originalOpenEditGalleryModal.call(this);
+};
+
+const originalOpenEditFileMetaModal = GalleryApp.prototype.openEditFileMetaModal;
+GalleryApp.prototype.openEditFileMetaModal = async function(idx) {
+  const userResult = await this.supa.auth.getSession();
+  const session = userResult.data?.session;
+  const userId = session?.user?.id;
+  await populateUserMultiSelect('editFileSharedWith', userId, this.supa);
+  setupVisibilityHandlers();
+  originalOpenEditFileMetaModal.call(this, idx);
+};
+
+// --- Save visibility/shared_with in upload logic ---
+// In handleUpload and retryFileUpload, add:
+// visibility: ...
+// shared_with: ...
 
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize Supabase client
@@ -1900,4 +1975,23 @@ document.addEventListener('DOMContentLoaded', function() {
       fileSaverScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js';
       document.head.appendChild(fileSaverScript);
   }
+
+  const sharedWithMeBtn = document.getElementById('sharedWithMeBtn');
+  if (sharedWithMeBtn) {
+    sharedWithMeBtn.addEventListener('click', async () => {
+      document.querySelectorAll('.category-filter').forEach(btn => btn.classList.remove('active'));
+      sharedWithMeBtn.classList.add('active');
+      window.galleryApp.galleryManager.page = 1;
+      window.galleryApp.galleryManager.allLoaded = false;
+      // Load shared-with-me items
+      window.galleryApp.galleryManager.loadFromAPI({ reset: true, sharedWithMe: true });
+    });
+  }
 });
+
+// Helper to get selected user IDs from a multi-select
+function getSelectedUserIds(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return [];
+  return Array.from(select.selectedOptions).map(opt => opt.value);
+}

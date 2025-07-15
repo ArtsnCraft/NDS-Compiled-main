@@ -21,6 +21,22 @@ exports.handler = async function(event, context) {
   const page = parseInt(params.get('page') || '1', 10);
   const pageSize = parseInt(params.get('pageSize') || '20', 10);
 
+  // Get current user from Authorization header (JWT)
+  let currentUserId = null;
+  const authHeader = event.headers['authorization'] || event.headers['Authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const jwt = authHeader.replace('Bearer ', '');
+    // Use Supabase to get user from JWT
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
+      if (!userError && user) {
+        currentUserId = user.id;
+      }
+    } catch (e) {
+      // Ignore, treat as not logged in
+    }
+  }
+
   let query = supabase
     .from('gallery_items')
     .select(`
@@ -48,8 +64,30 @@ exports.handler = async function(event, context) {
     };
   }
 
+  const sharedWithMe = params.get('shared_with_me') === 'true' || (event.queryStringParameters && event.queryStringParameters.shared_with_me === 'true');
+
+  // Privacy filtering
+  let filteredData;
+  if (sharedWithMe && currentUserId) {
+    filteredData = (data || []).filter(item => {
+      return item.visibility === 'restricted' && Array.isArray(item.shared_with) && item.shared_with.includes(currentUserId);
+    });
+  } else {
+    filteredData = (data || []).filter(item => {
+      if (item.visibility === 'public' || !item.visibility) return true;
+      if (!currentUserId) return false; // Not logged in, only public
+      if (item.visibility === 'private') return item.user_id === currentUserId;
+      if (item.visibility === 'restricted') {
+        if (item.user_id === currentUserId) return true;
+        if (Array.isArray(item.shared_with) && item.shared_with.includes(currentUserId)) return true;
+        return false;
+      }
+      return false;
+    });
+  }
+
   // Transform the data to flatten the counts
-  const transformedData = data.map(item => ({
+  const transformedData = filteredData.map(item => ({
     ...item,
     like_count: item.likes?.[0]?.count || 0,
     comment_count: item.comments?.[0]?.count || 0,

@@ -55,6 +55,10 @@ exports.handler = async function(event) {
       results.push({ id, error: 'Unauthorized' });
       continue;
     }
+    // Coerce shared_with to null unless restricted and non-empty array
+    if (fields.visibility !== 'restricted' || !Array.isArray(fields.shared_with) || fields.shared_with.length === 0) {
+      fields.shared_with = null;
+    }
     // Update the item
     const { error: updateError } = await supabase
       .from('gallery_items')
