@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content="N.D.S CompileD Gallery - Explore and upload creative images and videos." />
     <meta property="og:image" content="assets/default-preview.jpg" />
-    <title>N.D.S CompileD Gallery</title>
+    <title>CompileD Gallery</title>
     <link rel="icon" href="assets/favicon.ico" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles/style.css">
@@ -15,7 +15,7 @@
     <header>
         <div class="header-content">
             <i class="fas fa-thumbtack" style="color: var(--accent); font-size: 1.5rem;"></i>
-            <h1>N.D.S CompileD Gallery</h1>
+            <h1>CompileD Gallery</h1>
         </div>
         
         <div class="search-bar">
@@ -96,14 +96,16 @@
                     <div class="upload-icon">
                         <i class="fas fa-cloud-upload-alt"></i>
                     </div>
-                    <p class="upload-text">Drag & drop your image or video here, or click to browse</p>
-                    <img id="uploadPreview" class="upload-preview" alt="Preview of uploaded image">
-                    <video id="videoPreview" class="video-preview" controls></video>
+                    <p class="upload-text">Drag & drop your images or videos here, or click to browse. All selected files will share the same title, description, category, and tags.</p>
+                    <img id="uploadPreview" class="upload-preview" alt="Preview of uploaded image" style="display:none;">
+                    <video id="videoPreview" class="video-preview" controls style="display:none;"></video>
                     <div class="upload-progress" id="uploadProgress">
                         <div class="upload-progress-bar" id="progressBar"></div>
                     </div>
-                    <input type="file" id="fileInput" accept="image/*,video/*" style="display: none;">
+                    <input type="file" id="fileInput" accept="image/*,video/*" style="display: none;" multiple>
                 </div>
+                <!-- Multi-thumbnail/file status preview container -->
+                <div id="filePreviewList" class="file-preview-list"></div>
                 
                 <div class="form-group">
                     <label for="mediaTitle" class="form-label">Title *</label>
