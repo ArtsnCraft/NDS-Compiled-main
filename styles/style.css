@@ -1963,3 +1963,18 @@ input[type="checkbox"]:active, input[type="radio"]:active {
   color: var(--text-light);
   text-align: center;
 }
+
+/* Per-file Metadata Edit Modal */
+#editFileMetaModal .modal-content {
+  max-width: 420px;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+}
+#editFileMetaModal .form-group {
+  margin-bottom: 1.2rem;
+}
+#editFileMetaModal .form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.2rem;
+}

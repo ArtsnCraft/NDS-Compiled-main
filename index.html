@@ -310,6 +310,14 @@
                         <option value="video">Video</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="editDescription" class="form-label">Description</label>
+                    <textarea id="editDescription" class="form-textarea" rows="2" placeholder="Edit description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editCaption" class="form-label">Caption</label>
+                    <input type="text" id="editCaption" class="form-input" placeholder="Edit caption">
+                </div>
                 <!-- Optionally add more fields here (title, description, tags) -->
                 <div class="form-actions" style="display:flex;gap:1rem;align-items:center;">
                     <button type="button" class="secondary-btn" id="downloadSelectedBtn">Download</button>
@@ -335,6 +343,45 @@
                 <button type="button" class="submit-btn" id="confirmDeleteBtn" style="background:#ff4757;">Delete</button>
             </div>
         </div>
+    </div>
+
+    <!-- Per-file Metadata Edit Modal -->
+    <div class="modal" id="editFileMetaModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Edit File Metadata</h2>
+          <button class="close-btn" id="closeEditFileMetaModal" aria-label="Close modal">&times;</button>
+        </div>
+        <form id="editFileMetaForm">
+          <div class="form-group">
+            <label for="editFileTitle" class="form-label">Title *</label>
+            <input type="text" id="editFileTitle" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="editFileDescription" class="form-label">Description</label>
+            <textarea id="editFileDescription" class="form-textarea" rows="2"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="editFileCategory" class="form-label">Category *</label>
+            <select id="editFileCategory" class="form-select" required>
+              <option value="">Select a category</option>
+              <option value="birds">Birds</option>
+              <option value="pets">Pets</option>
+              <option value="landscape">Landscape</option>
+              <option value="night">Night</option>
+              <option value="video">Video</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editFileTags" class="form-label">Tags (comma separated)</label>
+            <input type="text" id="editFileTags" class="form-input">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="secondary-btn" id="copyMetaToAllBtn">Copy to All</button>
+            <button type="submit" class="submit-btn">Save</button>
+          </div>
+        </form>
+      </div>
     </div>
 </body>
 </html>

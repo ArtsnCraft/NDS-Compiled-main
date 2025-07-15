@@ -295,6 +295,8 @@ class GalleryApp {
         this.initEventListeners();
         // --- Multi-upload state ---
         this.fileList = [];
+        this.editingFileIdx = null;
+        this.isEditFileMetaModalOpen = false;
     }
 
     initTheme() {
@@ -442,6 +444,53 @@ class GalleryApp {
         document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
             this.handleDeleteSelected();
         });
+
+        // Edit file metadata modal
+        document.getElementById('editFileMetaModal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+                this.closeEditFileMetaModal();
+            }
+        });
+        document.getElementById('closeEditFileMetaModal').addEventListener('click', () => {
+            this.closeEditFileMetaModal();
+        });
+        document.getElementById('editFileMetaForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const idx = this.editingFileIdx;
+            if (idx == null) return this.closeEditFileMetaModal();
+            this.fileList[idx].title = document.getElementById('editFileTitle').value;
+            this.fileList[idx].description = document.getElementById('editFileDescription').value;
+            this.fileList[idx].category = document.getElementById('editFileCategory').value;
+            this.fileList[idx].tags = document.getElementById('editFileTags').value.split(',').map(t => t.trim()).filter(Boolean);
+            this.renderFilePreviewList();
+            this.closeEditFileMetaModal();
+        });
+        document.getElementById('copyMetaToAllBtn').addEventListener('click', () => {
+            const idx = this.editingFileIdx;
+            if (idx == null) return;
+            const meta = {
+                title: document.getElementById('editFileTitle').value,
+                description: document.getElementById('editFileDescription').value,
+                category: document.getElementById('editFileCategory').value,
+                tags: document.getElementById('editFileTags').value.split(',').map(t => t.trim()).filter(Boolean)
+            };
+            this.fileList.forEach((f, i) => {
+                if (i !== idx) {
+                    f.title = meta.title;
+                    f.description = meta.description;
+                    f.category = meta.category;
+                    f.tags = meta.tags;
+                }
+            });
+            this.renderFilePreviewList();
+        });
+        // Prevent upload if edit modal is open
+        document.getElementById('uploadForm').addEventListener('submit', (e) => {
+            if (this.isEditFileMetaModalOpen) {
+                e.preventDefault();
+                this.showNotification('Finish editing file metadata before uploading.', 'error');
+            }
+        }, true);
     }
 
     performSearch() {
@@ -570,6 +619,52 @@ class GalleryApp {
                 document.getElementById('fileInput').files = dt.files;
             };
             div.appendChild(removeBtn);
+            // Edit button
+            const editBtn = document.createElement('button');
+            editBtn.className = 'file-preview-edit';
+            editBtn.innerHTML = '<i class="fas fa-pen"></i>';
+            editBtn.title = 'Edit metadata';
+            editBtn.style.position = 'absolute';
+            editBtn.style.top = '2px';
+            editBtn.style.left = '2px';
+            editBtn.style.background = 'rgba(67,97,238,0.85)';
+            editBtn.style.color = '#fff';
+            editBtn.style.border = 'none';
+            editBtn.style.borderRadius = '50%';
+            editBtn.style.width = '20px';
+            editBtn.style.height = '20px';
+            editBtn.style.fontSize = '1rem';
+            editBtn.style.cursor = 'pointer';
+            editBtn.style.display = 'flex';
+            editBtn.style.alignItems = 'center';
+            editBtn.style.justifyContent = 'center';
+            editBtn.style.zIndex = '2';
+            editBtn.onclick = () => this.openEditFileMetaModal(idx);
+            div.appendChild(editBtn);
+            // Retry button for failed uploads
+            if (item.status === 'failed') {
+                const retryBtn = document.createElement('button');
+                retryBtn.className = 'file-preview-retry';
+                retryBtn.innerHTML = '<i class="fas fa-redo"></i>';
+                retryBtn.title = 'Retry upload';
+                retryBtn.style.position = 'absolute';
+                retryBtn.style.bottom = '2px';
+                retryBtn.style.right = '2px';
+                retryBtn.style.background = 'rgba(76,201,240,0.85)';
+                retryBtn.style.color = '#fff';
+                retryBtn.style.border = 'none';
+                retryBtn.style.borderRadius = '50%';
+                retryBtn.style.width = '20px';
+                retryBtn.style.height = '20px';
+                retryBtn.style.fontSize = '1rem';
+                retryBtn.style.cursor = 'pointer';
+                retryBtn.style.display = 'flex';
+                retryBtn.style.alignItems = 'center';
+                retryBtn.style.justifyContent = 'center';
+                retryBtn.style.zIndex = '2';
+                retryBtn.onclick = () => this.retryFileUpload(idx);
+                div.appendChild(retryBtn);
+            }
             // Thumbnail or icon
             if (item.file.type.startsWith('image/')) {
                 const img = document.createElement('img');
@@ -612,6 +707,29 @@ class GalleryApp {
         });
     }
 
+    openEditFileMetaModal(idx) {
+        this.editingFileIdx = idx;
+        this.isEditFileMetaModalOpen = true;
+        const file = this.fileList[idx];
+        // If no per-file meta, initialize from main form
+        if (!file.title) file.title = document.getElementById('mediaTitle').value;
+        if (!file.description) file.description = document.getElementById('mediaDescription').value;
+        if (!file.category) file.category = document.getElementById('mediaCategory').value;
+        if (!file.tags) file.tags = document.getElementById('mediaTags').value;
+        document.getElementById('editFileTitle').value = file.title || '';
+        document.getElementById('editFileDescription').value = file.description || '';
+        document.getElementById('editFileCategory').value = file.category || '';
+        document.getElementById('editFileTags').value = Array.isArray(file.tags) ? file.tags.join(', ') : (file.tags || '');
+        document.getElementById('editFileMetaModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeEditFileMetaModal() {
+        this.isEditFileMetaModalOpen = false;
+        document.getElementById('editFileMetaModal').classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
     showDragCount(e) {
         // Show a count of files being dragged in (optional, simple badge)
         if (e && e.dataTransfer && e.dataTransfer.items) {
@@ -648,7 +766,6 @@ class GalleryApp {
 
     async handleUpload(e) {
         e.preventDefault();
-        const fileInput = document.getElementById('fileInput');
         const files = this.fileList;
         if (!files || files.length === 0) {
             this.showNotification('Please select at least one file to upload', 'error');
@@ -662,27 +779,18 @@ class GalleryApp {
             this.showNotification('You must be signed in to upload.', 'error');
             return;
         }
-        // Gather metadata from form
-        const title = document.getElementById('mediaTitle').value;
-        const description = document.getElementById('mediaDescription').value;
-        const category = document.getElementById('mediaCategory').value;
-        const tags = document.getElementById('mediaTags').value.split(',').map(tag => tag.trim());
-        const userId = session.user.id;
         let completed = 0;
         let failed = 0;
         const total = files.length;
-        // Per-file upload
         for (let i = 0; i < files.length; i++) {
             const item = files[i];
             this.fileList[i].status = 'uploading';
             this.fileList[i].progress = 0;
             this.renderFilePreviewList();
             try {
-                // Upload file to Supabase Storage
                 const file = item.file;
                 const fileExt = file.name.split('.').pop();
                 const filePath = `${Date.now()}_${Math.random().toString(36).substr(2)}_${i}.${fileExt}`;
-                // Progress simulation (Supabase JS SDK does not support progress natively)
                 let fakeProgress = 0;
                 const progressInterval = setInterval(() => {
                     fakeProgress += Math.random() * 20;
@@ -699,20 +807,18 @@ class GalleryApp {
                     failed++;
                     continue;
                 }
-                // Get public URL
                 const { data: urlData } = this.supa.storage.from('media').getPublicUrl(filePath);
                 const publicURL = urlData.publicUrl;
-                // Prepare metadata
+                // Use per-file metadata if present, else fallback to main form
                 const newItem = {
                     type: file.type.startsWith('image/') ? 'image' : 'video',
                     src: publicURL,
-                    title,
-                    description,
-                    category,
-                    tags,
-                    user_id: userId
+                    title: item.title || document.getElementById('mediaTitle').value,
+                    description: item.description || document.getElementById('mediaDescription').value,
+                    category: item.category || document.getElementById('mediaCategory').value,
+                    tags: item.tags && item.tags.length ? item.tags : document.getElementById('mediaTags').value.split(',').map(t => t.trim()).filter(Boolean),
+                    user_id: session.user.id
                 };
-                // Save metadata to DB via Netlify Function
                 const response = await fetch('/.netlify/functions/upload-gallery', {
                     method: 'POST',
                     headers: {
@@ -742,6 +848,74 @@ class GalleryApp {
             this.showNotification(`${completed} file(s) uploaded, ${failed} failed.`, 'error');
         } else {
             this.showNotification('All uploads failed. Please try again.', 'error');
+        }
+    }
+
+    async retryFileUpload(idx) {
+        const item = this.fileList[idx];
+        if (!item) return;
+        // Check authentication
+        const userResult = await this.supa.auth.getSession();
+        const session = userResult.data?.session;
+        const accessToken = session?.access_token;
+        if (!session) {
+            this.showNotification('You must be signed in to upload.', 'error');
+            return;
+        }
+        this.fileList[idx].status = 'uploading';
+        this.fileList[idx].progress = 0;
+        this.renderFilePreviewList();
+        try {
+            const file = item.file;
+            const fileExt = file.name.split('.').pop();
+            const filePath = `${Date.now()}_${Math.random().toString(36).substr(2)}_${idx}.${fileExt}`;
+            let fakeProgress = 0;
+            const progressInterval = setInterval(() => {
+                fakeProgress += Math.random() * 20;
+                if (fakeProgress > 90) fakeProgress = 90;
+                this.fileList[idx].progress = fakeProgress;
+                this.renderFilePreviewList();
+            }, 150);
+            const { data: uploadData, error: uploadError } = await this.supa.storage.from('media').upload(filePath, file);
+            clearInterval(progressInterval);
+            this.fileList[idx].progress = 100;
+            this.renderFilePreviewList();
+            if (uploadError) {
+                this.fileList[idx].status = 'failed';
+                this.showNotification('Retry failed: ' + uploadError.message, 'error');
+                return;
+            }
+            const { data: urlData } = this.supa.storage.from('media').getPublicUrl(filePath);
+            const publicURL = urlData.publicUrl;
+            const newItem = {
+                type: file.type.startsWith('image/') ? 'image' : 'video',
+                src: publicURL,
+                title: item.title || document.getElementById('mediaTitle').value,
+                description: item.description || document.getElementById('mediaDescription').value,
+                category: item.category || document.getElementById('mediaCategory').value,
+                tags: item.tags && item.tags.length ? item.tags : document.getElementById('mediaTags').value.split(',').map(t => t.trim()).filter(Boolean),
+                user_id: session.user.id
+            };
+            const response = await fetch('/.netlify/functions/upload-gallery', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify(newItem)
+            });
+            if (!response.ok) {
+                this.fileList[idx].status = 'failed';
+                this.showNotification('Retry failed: ' + (await response.text()), 'error');
+                return;
+            }
+            this.fileList[idx].status = 'success';
+            this.renderFilePreviewList();
+            this.showNotification('File uploaded successfully!', 'success');
+        } catch (error) {
+            this.fileList[idx].status = 'failed';
+            this.renderFilePreviewList();
+            this.showNotification('Retry failed. Please try again.', 'error');
         }
     }
 
@@ -961,24 +1135,35 @@ class GalleryApp {
         const modal = document.getElementById('mediaDetailModal');
         const body = document.getElementById('mediaDetailBody');
         document.getElementById('mediaDetailTitle').textContent = item.title || 'Media Details';
-        
-        // Create a more natural image display that respects the image's aspect ratio
+        // Get all visible gallery items
+        const items = Array.from(document.querySelectorAll('.gallery-item'))
+            .map(el => {
+                const id = el.dataset.id;
+                return this.galleryManager.galleryItems.find(i => i.id == id);
+            })
+            .filter(Boolean);
+        const currentIndex = items.findIndex(i => i.id === item.id);
+        const prevItem = currentIndex > 0 ? items[currentIndex - 1] : null;
+        const nextItem = currentIndex < items.length - 1 ? items[currentIndex + 1] : null;
+        // Main media element
         const isVideo = item.type === 'video';
         const mediaElement = isVideo ? 
             `<video controls style='max-width:100%; max-height:60vh; border-radius:12px; object-fit:contain;' loading='lazy'>
                 <source src='${item.src}' type='video/mp4'>
             </video>` :
             `<img src='${item.src}' alt='${item.title}' style='max-width:100%; max-height:60vh; border-radius:12px; object-fit:contain;' loading='lazy'>`;
-        
+        // Side previews
+        const prevPreview = prevItem ? `<div class="side-preview" style="margin-right:2vw;cursor:pointer;" onclick="window.galleryApp.openMediaDetailModal(window.galleryApp.galleryManager.galleryItems.find(i=>i.id=='${prevItem.id}'))"><img src='${prevItem.src}' alt='' style='max-width:80px; max-height:60vh; opacity:0.45; border-radius:12px; object-fit:contain;'/></div>` : '';
+        const nextPreview = nextItem ? `<div class="side-preview" style="margin-left:2vw;cursor:pointer;" onclick="window.galleryApp.openMediaDetailModal(window.galleryApp.galleryManager.galleryItems.find(i=>i.id=='${nextItem.id}'))"><img src='${nextItem.src}' alt='' style='max-width:80px; max-height:60vh; opacity:0.45; border-radius:12px; object-fit:contain;'/></div>` : '';
         body.innerHTML = `
-            <div class="media-container">
+            <div class="media-container" style="display:flex;align-items:center;justify-content:center;gap:0.5vw;">
+                ${prevPreview}
                 ${mediaElement}
+                ${nextPreview}
             </div>
         `;
-        
         // Add navigation arrows
         this.addNavigationArrows(modal, item);
-        
         this.openModal(modal);
     }
 
@@ -1129,12 +1314,16 @@ class GalleryApp {
     }
 
     openEditGalleryModal() {
-        // Optionally prefill category if all selected items have the same category
+        // Optionally prefill category, description, caption if all selected items have the same value
         const selectedIds = this.galleryManager.getSelectedItems();
         if (selectedIds.length === 0) return;
         const items = this.galleryManager.galleryItems.filter(i => selectedIds.includes(i.id));
         const allSameCategory = items.every(i => i.category === items[0].category);
+        const allSameDescription = items.every(i => i.description === items[0].description);
+        const allSameCaption = items.every(i => i.caption === items[0].caption);
         document.getElementById('editCategory').value = allSameCategory ? items[0].category : '';
+        document.getElementById('editDescription').value = allSameDescription ? (items[0].description || '') : '';
+        document.getElementById('editCaption').value = allSameCaption ? (items[0].caption || '') : '';
         this.openModal(document.getElementById('editGalleryModal'));
     }
 
@@ -1145,15 +1334,25 @@ class GalleryApp {
     async handleEditGallerySubmit(e) {
         e.preventDefault();
         const category = document.getElementById('editCategory').value;
+        const description = document.getElementById('editDescription').value;
+        const caption = document.getElementById('editCaption').value;
         const selectedIds = this.galleryManager.getSelectedItems();
-        if (!category || selectedIds.length === 0) return;
+        if (!category && !description && !caption) return;
+        if (selectedIds.length === 0) return;
         // Call backend to update
         const { data: { session } } = await this.supa.auth.getSession();
         if (!session) {
             this.showNotification('Please sign in to edit items', 'error');
             return;
         }
-        const updates = selectedIds.map(id => ({ id, category }));
+        // Only send fields that are set
+        const updates = selectedIds.map(id => {
+            const update = { id };
+            if (category) update.category = category;
+            if (description) update.description = description;
+            if (caption) update.caption = caption;
+            return update;
+        });
         const response = await fetch('/.netlify/functions/update-gallery-item', {
             method: 'PUT',
             headers: {
@@ -1163,7 +1362,7 @@ class GalleryApp {
             body: JSON.stringify(updates)
         });
         if (response.ok) {
-            this.showNotification('Category updated!', 'success');
+            this.showNotification('Gallery items updated!', 'success');
             this.galleryManager.setSelectionMode(false);
             document.getElementById('toggleSelectModeBtn').textContent = 'Select';
             document.getElementById('editSelectedBtn').style.display = 'none';
@@ -1171,7 +1370,7 @@ class GalleryApp {
             // Reload gallery
             this.galleryManager.loadFromAPI({ reset: true });
         } else {
-            this.showNotification('Failed to update category', 'error');
+            this.showNotification('Failed to update gallery items', 'error');
         }
     }
 
