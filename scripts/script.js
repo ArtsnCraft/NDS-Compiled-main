@@ -2054,6 +2054,12 @@ document.addEventListener('DOMContentLoaded', function() {
     myGalleryBtn.addEventListener('click', async () => {
       document.querySelectorAll('.category-filter').forEach(btn => btn.classList.remove('active'));
       myGalleryBtn.classList.add('active');
+      // --- Instant feedback: clear gallery and show spinner ---
+      const galleryContainer = document.getElementById('galleryContainer');
+      const gallerySkeletons = document.getElementById('gallerySkeletons');
+      if (galleryContainer) galleryContainer.innerHTML = '';
+      if (gallerySkeletons) gallerySkeletons.style.display = 'flex';
+      // ---
       const userResult = await window.galleryApp.supa.auth.getUser();
       const user = userResult.data?.user;
       window.galleryApp.galleryManager.page = 1;
@@ -2071,9 +2077,33 @@ document.addEventListener('DOMContentLoaded', function() {
     allMediaBtn.addEventListener('click', () => {
       document.querySelectorAll('.category-filter').forEach(btn => btn.classList.remove('active'));
       allMediaBtn.classList.add('active');
+      // --- Instant feedback: clear gallery and show spinner ---
+      const galleryContainer = document.getElementById('galleryContainer');
+      const gallerySkeletons = document.getElementById('gallerySkeletons');
+      if (galleryContainer) galleryContainer.innerHTML = '';
+      if (gallerySkeletons) gallerySkeletons.style.display = 'flex';
+      // ---
       window.galleryApp.galleryManager.page = 1;
       window.galleryApp.galleryManager.allLoaded = false;
       window.galleryApp.galleryManager.loadFromAPI({ reset: true, userId: null });
+    });
+  }
+
+  const sharedWithMeBtn = document.getElementById('sharedWithMeBtn');
+  if (sharedWithMeBtn) {
+    sharedWithMeBtn.addEventListener('click', async () => {
+      document.querySelectorAll('.category-filter').forEach(btn => btn.classList.remove('active'));
+      sharedWithMeBtn.classList.add('active');
+      // --- Instant feedback: clear gallery and show spinner ---
+      const galleryContainer = document.getElementById('galleryContainer');
+      const gallerySkeletons = document.getElementById('gallerySkeletons');
+      if (galleryContainer) galleryContainer.innerHTML = '';
+      if (gallerySkeletons) gallerySkeletons.style.display = 'flex';
+      // ---
+      window.galleryApp.galleryManager.page = 1;
+      window.galleryApp.galleryManager.allLoaded = false;
+      // Load shared-with-me items
+      window.galleryApp.galleryManager.loadFromAPI({ reset: true, sharedWithMe: true });
     });
   }
 
@@ -2087,18 +2117,6 @@ document.addEventListener('DOMContentLoaded', function() {
       const fileSaverScript = document.createElement('script');
       fileSaverScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js';
       document.head.appendChild(fileSaverScript);
-  }
-
-  const sharedWithMeBtn = document.getElementById('sharedWithMeBtn');
-  if (sharedWithMeBtn) {
-    sharedWithMeBtn.addEventListener('click', async () => {
-      document.querySelectorAll('.category-filter').forEach(btn => btn.classList.remove('active'));
-      sharedWithMeBtn.classList.add('active');
-      window.galleryApp.galleryManager.page = 1;
-      window.galleryApp.galleryManager.allLoaded = false;
-      // Load shared-with-me items
-      window.galleryApp.galleryManager.loadFromAPI({ reset: true, sharedWithMe: true });
-    });
   }
 });
 
