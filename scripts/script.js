@@ -21,8 +21,8 @@ class GalleryManager {
     async loadFromAPI({ append = false, reset = false, userId = undefined, sharedWithMe = false } = {}) {
         if (this.loadingMore || this.allLoaded) return;
         this.loadingMore = false;
-        let url = `/.netlify/functions/get-gallery?page=${this.page}&pageSize=${this.pageSize}`;
-        if (this.userId) url += `&user_id=${this.userId}`;
+            let url = `/.netlify/functions/get-gallery?page=${this.page}&pageSize=${this.pageSize}`;
+            if (this.userId) url += `&user_id=${this.userId}`;
         if (sharedWithMe) url += `&shared_with_me=true`;
         let accessToken = null;
         if (window.galleryApp && window.galleryApp.supa) {
@@ -33,19 +33,19 @@ class GalleryManager {
         const response = await fetch(url, {
             headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}
         });
-        const items = await response.json();
-        if (Array.isArray(items) && items.length > 0) {
-            if (append) {
-                this.galleryItems = this.galleryItems.concat(items);
+            const items = await response.json();
+            if (Array.isArray(items) && items.length > 0) {
+                if (append) {
+                    this.galleryItems = this.galleryItems.concat(items);
+                } else {
+                    this.galleryItems = items;
+                }
+                this.renderGallery();
+                if (items.length < this.pageSize) {
+                    this.allLoaded = true;
+                }
             } else {
-                this.galleryItems = items;
-            }
-            this.renderGallery();
-            if (items.length < this.pageSize) {
                 this.allLoaded = true;
-            }
-        } else {
-            this.allLoaded = true;
         }
     }
 
@@ -1138,15 +1138,128 @@ class GalleryApp {
         const prevPreview = prevItem ? `<div class="side-preview" style="margin-right:2vw;cursor:pointer;" onclick="window.galleryApp.openMediaDetailModal(window.galleryApp.galleryManager.galleryItems.find(i=>i.id=='${prevItem.id}'))"><img src='${prevItem.src}' alt='' style='max-width:80px; max-height:60vh; opacity:0.45; border-radius:12px; object-fit:contain;'/></div>` : '';
         const nextPreview = nextItem ? `<div class="side-preview" style="margin-left:2vw;cursor:pointer;" onclick="window.galleryApp.openMediaDetailModal(window.galleryApp.galleryManager.galleryItems.find(i=>i.id=='${nextItem.id}'))"><img src='${nextItem.src}' alt='' style='max-width:80px; max-height:60vh; opacity:0.45; border-radius:12px; object-fit:contain;'/></div>` : '';
         body.innerHTML = `
-            <div class="media-container" style="display:flex;align-items:center;justify-content:center;gap:0.5vw;">
+            <div class="media-container" style="display:flex;align-items:center;justify-content:center;">
                 ${prevPreview}
-                ${mediaElement}
+                <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+                    ${mediaElement}
+                </div>
                 ${nextPreview}
             </div>
+            <div class="info-section">
+                <h3>${item.title}</h3>
+                <p>${item.description || ''}</p>
+                <p><strong>Category:</strong> ${item.category || '-'}</p>
+            </div>
         `;
-        // Add navigation arrows
-        this.addNavigationArrows(modal, item);
-        this.openModal(modal);
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        // Focus for keyboard navigation
+        modal.tabIndex = 0;
+        setTimeout(() => modal.focus(), 50);
+
+        // --- Adaptive Touch Gesture Support ---
+        let touchStartX = null;
+        let touchStartY = null;
+        let touchEndX = null;
+        let touchEndY = null;
+        const minSwipeDistance = 50; // px
+        // Remove previous listeners if any
+        if (modal._touchHandlerCleanup) modal._touchHandlerCleanup();
+        const isMobile = window.innerWidth <= 768;
+        const onTouchStart = (e) => {
+            if (e.touches && e.touches.length === 1) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }
+        };
+        const onTouchMove = (e) => {
+            if (e.touches && e.touches.length === 1) {
+                touchEndX = e.touches[0].clientX;
+                touchEndY = e.touches[0].clientY;
+            }
+        };
+        const onTouchEnd = (e) => {
+            if (touchStartX !== null && touchEndX !== null && touchStartY !== null && touchEndY !== null) {
+                const dx = touchEndX - touchStartX;
+                const dy = touchEndY - touchStartY;
+                if (isMobile) {
+                    // Vertical swipe for mobile
+                    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > minSwipeDistance) {
+                        if (dy < 0 && nextItem) {
+                            // Swipe up: next
+                            this.openMediaDetailModal(nextItem);
+                        } else if (dy > 0 && prevItem) {
+                            // Swipe down: previous
+                            this.openMediaDetailModal(prevItem);
+                        }
+                    }
+                } else {
+                    // Horizontal swipe for desktop
+                    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > minSwipeDistance) {
+                        if (dx < 0 && nextItem) {
+                            // Swipe left: next
+                            this.openMediaDetailModal(nextItem);
+                        } else if (dx > 0 && prevItem) {
+                            // Swipe right: previous
+                            this.openMediaDetailModal(prevItem);
+                        }
+                    }
+                }
+            }
+            touchStartX = touchStartY = touchEndX = touchEndY = null;
+        };
+        modal.addEventListener('touchstart', onTouchStart, { passive: true });
+        modal.addEventListener('touchmove', onTouchMove, { passive: true });
+        modal.addEventListener('touchend', onTouchEnd, { passive: true });
+        // Cleanup handler to remove listeners when modal closes
+        modal._touchHandlerCleanup = () => {
+            modal.removeEventListener('touchstart', onTouchStart);
+            modal.removeEventListener('touchmove', onTouchMove);
+            modal.removeEventListener('touchend', onTouchEnd);
+            delete modal._touchHandlerCleanup;
+        };
+        // Remove listeners on modal close
+        const cleanupOnClose = () => {
+            if (modal._touchHandlerCleanup) modal._touchHandlerCleanup();
+            modal.removeEventListener('modalClose', cleanupOnClose);
+        };
+        modal.addEventListener('modalClose', cleanupOnClose);
+
+        // --- Restore navigation arrows on desktop only ---
+        if (!isMobile) {
+            // Remove existing arrows
+            const existingArrows = modal.querySelectorAll('.nav-arrow');
+            existingArrows.forEach(arrow => arrow.remove());
+            // Get all visible gallery items (again, for safety)
+            const items = Array.from(document.querySelectorAll('.gallery-item'))
+                .map(el => {
+                    const id = el.dataset.id;
+                    return this.galleryManager.galleryItems.find(i => i.id == id);
+                })
+                .filter(Boolean);
+            const currentIndex = items.findIndex(i => i.id === item.id);
+            // Create navigation arrows
+            const prevArrow = document.createElement('button');
+            prevArrow.className = 'nav-arrow prev';
+            prevArrow.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevArrow.disabled = currentIndex <= 0;
+            prevArrow.addEventListener('click', () => {
+                if (currentIndex > 0) {
+                    this.openMediaDetailModal(items[currentIndex - 1]);
+                }
+            });
+            const nextArrow = document.createElement('button');
+            nextArrow.className = 'nav-arrow next';
+            nextArrow.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextArrow.disabled = currentIndex >= items.length - 1;
+            nextArrow.addEventListener('click', () => {
+                if (currentIndex < items.length - 1) {
+                    this.openMediaDetailModal(items[currentIndex + 1]);
+                }
+            });
+            modal.appendChild(prevArrow);
+            modal.appendChild(nextArrow);
+        }
     }
 
     addNavigationArrows(modal, currentItem) {
