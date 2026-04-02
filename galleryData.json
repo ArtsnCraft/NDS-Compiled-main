@@ -1,0 +1,86 @@
+[
+  {
+    "filename": "Beautiful sunset.jpg",
+    "category": "landscape",
+    "title": "Beautiful pets",
+    "description": "Time-lapse of a girl's pet",
+    "type": "image"
+  },
+  {
+    "filename": "City night sky.jpg",
+    "category": "night",
+    "title": "Beautiful Sunset",
+    "description": "Sunset over the mountains",
+    "type": "image"
+  },
+  {
+    "filename": "Gentleman choice..jpg",
+    "category": "uncategorized",
+    "title": "Ocean View",
+    "description": "Rolling waves and seagulls",
+    "type": "image"
+  },
+  {
+    "filename": "Knights.jpg",
+    "category": "night",
+    "title": "City Lights",
+    "description": "City skyline at night",
+    "type": "image"
+  },
+  {
+    "filename": "Screen saver.mp4",
+    "category": "video",
+    "title": "Starry Night",
+    "description": "Stars across the desert sky",
+    "type": "video"
+  },
+  {
+    "filename": "Wallpaper of Stary nights.jpg",
+    "category": "night",
+    "title": "Beautiful pets",
+    "description": "Time-lapse of a girl's pet",
+    "type": "image"
+  },
+  {
+    "filename": "Wallpaper of tennis balls.jpg",
+    "category": "uncategorized",
+    "title": "Beautiful Sunset",
+    "description": "Sunset over the mountains",
+    "type": "image"
+  },
+  {
+    "filename": "anza copy.jpg",
+    "category": "uncategorized",
+    "title": "Ocean View",
+    "description": "Rolling waves and seagulls",
+    "type": "image"
+  },
+  {
+    "filename": "me.jpg",
+    "category": "uncategorized",
+    "title": "City Lights",
+    "description": "City skyline at night",
+    "type": "image"
+  },
+  {
+    "filename": "pexels-jplenio-3131634.jpg",
+    "category": "uncategorized",
+    "title": "Starry Night",
+    "description": "Stars across the desert sky",
+    "type": "image"
+  },
+  {
+    "filename": "wallpaperflare.com_wallpaper.jpg",
+    "category": "uncategorized",
+    "title": "Beautiful pets",
+    "description": "Time-lapse of a girl's pet",
+    "type": "image"
+  },
+  {
+    "filename": "wallpaperflare.com_wallpaper01.jpg",
+    "category": "uncategorized",
+    "title": "Beautiful Sunset",
+    "description": "Sunset over the mountains",
+    "type": "image"
+  }
+]

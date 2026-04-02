@@ -1,0 +1,79 @@
+  <!-- script starts-->
+    const gallery = document.getElementById('gallery');
+    const categoryButtons = document.querySelectorAll('.category-btn');
+    const uploadForm = document.getElementById('uploadForm');
+
+    let currentFilter = '';
+
+    function fetchImages(filter = '') {
+      fetch(`get-images.php?search=${filter}`)
+        .then(res => res.json())
+        .then(images => {
+          gallery.innerHTML = '';
+          images.forEach(img => {
+            const div = document.createElement('div');
+            div.className = 'gallery-item';
+            div.innerHTML = `
+              <img src="uploads/${img.filename}" alt="${img.category}">
+              <div class="category-tag">${img.category}</div>
+              <div class="info">
+                <strong>${img.caption || ''}</strong>
+                <small>${img.upload_date || ''}</small>
+              </div>
+              <button class="delete-btn" data-file="${img.filename}">×</button>
+            `;
+            gallery.appendChild(div);
+          });
+        });
+    }
+
+    categoryButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        categoryButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        fetchImages(currentFilter);
+      });
+    });
+
+    uploadForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const formData = new FormData(uploadForm);
+      fetch('upload.php', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(result => {
+        if (result.success) {
+          alert("Upload successful!");
+          uploadForm.reset();
+          fetchImages(currentFilter);
+        } else {
+          alert("Upload failed: " + result.message);
+        }
+      });
+    });
+
+    gallery.addEventListener('click', (e) => {
+      if (e.target.classList.contains('delete-btn')) {
+        const filename = e.target.dataset.file;
+        fetch('delete.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `filename=${encodeURIComponent(filename)}`
+        })
+        .then(res => res.json())
+        .then(result => {
+          if (result.success) {
+            alert("Deleted!");
+            fetchImages(currentFilter);
+          } else {
+            alert("Delete failed: " + result.message);
+          }
+        });
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => fetchImages());
+  <!--script end-->

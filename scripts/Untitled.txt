@@ -1,0 +1,141 @@
+
+> **Prompt:**
+>
+> I am building a PHP web application called **SOMA** for **Bus Fleet Management**. The app should support **three user roles** — Admin, Office, and Conductor — each with specific permissions and dashboards. Here's a breakdown of what I want:
+>
+> ---
+>
+> **🔐 Authentication**
+>
+> * A login system using PHP/MySQL that redirects users based on their role (admin, office, conductor).
+> * Role-based access control for different pages.
+>
+> ---
+>
+> **🚍 Admin Dashboard**
+>
+> * Add, update, delete buses.
+> * Add, update, delete drivers and conductors.
+> * Assign or reassign drivers and conductors to buses.
+> * View all financial reports for all buses.
+> * View performance charts per bus, per driver, and per conductor.
+>
+> ---
+>
+> **🏢 Office Dashboard**
+>
+> * View and verify uploaded ticket data from conductors.
+> * Validate and update ticket entries (passenger and luggage) per trip.
+> * Track earnings per bus per trip.
+> * Generate performance reports/charts:
+>
+>   * Daily, weekly, and monthly.
+>   * Bus-level and team-level (driver + conductor).
+> * Reassign drivers and conductors.
+>
+> ---
+>
+> **🧾 Conductor Dashboard**
+>
+> * Upload ticket sales data per trip (passenger + luggage).
+> * Specify prices, number of passengers, luggage fee, and trip date.
+> * View trip history and submission status.
+>
+> ---
+>
+> **📊 Reports & Charts**
+>
+> * Use Chart.js or Google Charts.
+> * Show:
+>
+>   * Bus revenue over time (bar/line chart).
+>   * Driver and conductor performance (e.g., top earners).
+>   * Ticket type breakdown (passenger vs luggage).
+>
+> ---
+>
+> **🧱 Database**
+>
+> * Design a MySQL schema that includes:
+>
+>   * Users (roles, credentials)
+>   * Buses
+>   * Drivers and conductors
+>   * Assignments (who is on what bus)
+>   * Tickets (uploaded by conductors)
+>   * Validated trips (approved by office)
+>   * Financial logs (daily/weekly/monthly summaries)
+>
+> ---
+>
+> **📁 File Upload**
+>
+> * Allow conductors to upload ticket data using a form.
+> * Store ticket info in the database (no need for image upload).
+> * Ticket entries should include:
+>
+>   * Ticket number (auto-generated)
+>   * Type (passenger/luggage)
+>   * Price
+>   * Bus ID
+>   * Date and time
+>
+> ---
+>
+> **💡 Additional Notes**
+>
+> * Keep the UI clean using Bootstrap or Tailwind.
+> * Use PDO or MySQLi for database interaction.
+> * Ensure security: input validation, role checks, and session handling.
+> * Structure files into folders (`admin/`, `office/`, `conductor/`, `includes/`, `assets/`, etc.).
+>
+> ---
+>
+> Generate for me:
+>
+> * Suggested **file/folder structure**.
+> * Complete **MySQL database schema**.
+> * **Login system** with role redirection.
+> * **Admin dashboard** with forms for buses, drivers, and assignments.
+> * **Office dashboard** with trip verification and reporting.
+> * **Conductor dashboard** with ticket upload.
+> * Example **charts** for performance tracking.
+> * Sample CSS/HTML layout (mobile-friendly).
+> * Any helpful tips to make the project scalable.
+
+
+
+
+I already have the folder structure set up like this /soma_system/
+│
+├── /admin/               → Admin dashboard & tools
+│   └── dashboard.php
+│   └── manage_buses.php
+│   └── manage_staff.php
+│
+├── /office/              → Office dashboard
+│   └── dashboard.php
+│   └── verify_tickets.php
+│   └── reports.php
+│
+├── /conductor/           → Conductor dashboard
+│   └── dashboard.php
+│   └── upload_tickets.php
+│
+├── /includes/            → Reusable PHP files
+│   └── db.php
+│   └── auth.php
+│   └── functions.php
+│
+├── /assets/              → CSS, JS, Images
+│   └── /css/
+│   └── /js/
+│   └── /img/
+│
+├── index.php             → Login screen
+├── logout.php
+└── init.sql              → SQL file for DB setup
+
+
+http://localhost/soma_system/index.php
+
